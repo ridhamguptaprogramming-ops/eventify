@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogIn, LogOut, User, Shield, Calendar } from 'lucide-react';
+import { Menu, X, LogIn, LogOut, Shield, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { auth, googleProvider, signInWithPopup, signOut } from '../lib/firebase';
+import { auth, googleProvider, signInWithPopup, signInWithRedirect, signOut } from '../lib/firebase';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+
+function getLoginErrorMessage(code?: string) {
+  switch (code) {
+    case 'auth/popup-blocked':
+      return 'Popup was blocked by the browser. Trying redirect login...';
+    case 'auth/popup-closed-by-user':
+      return 'Login popup was closed before completing sign-in.';
+    case 'auth/cancelled-popup-request':
+      return 'A login request is already in progress. Please try again.';
+    case 'auth/operation-not-allowed':
+      return 'Google sign-in is not enabled in Firebase Authentication.';
+    case 'auth/unauthorized-domain':
+      return `This domain is not authorized in Firebase Authentication. Add ${window.location.hostname} to Authorized domains.`;
+    default:
+      return 'Login failed. Please try again.';
+  }
+}
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { user, profile, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -20,7 +38,21 @@ export default function Navbar() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'auth/popup-blocked') {
+        toast.info(getLoginErrorMessage(code));
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          const redirectCode = (redirectError as { code?: string })?.code;
+          console.error('Redirect login error:', redirectError);
+          toast.error(getLoginErrorMessage(redirectCode));
+          return;
+        }
+      }
       console.error('Login error:', error);
+      toast.error(getLoginErrorMessage(code));
     }
   };
 

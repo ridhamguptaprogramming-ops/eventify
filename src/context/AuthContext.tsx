@@ -33,30 +33,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
       setUser(user);
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists()) {
-          setProfile(userDoc.data() as UserProfile);
-        } else {
-          // Create new user profile
-          const newProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || '',
-            role: user.email === 'ridham.gupta.programming@gmail.com' ? 'admin' : 'user',
-            isVerified: false,
-            createdAt: new Date().toISOString(),
-          };
-          await setDoc(userDocRef, newProfile);
-          setProfile(newProfile);
-        }
-      } else {
+
+      if (!user) {
         setProfile(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      const userDocRef = doc(db, 'users', user.uid);
+      const fallbackProfile: UserProfile = {
+        uid: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || '',
+        role: user.email === 'ridham.gupta.programming@gmail.com' ? 'admin' : 'user',
+        isVerified: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      try {
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          setProfile({
+            ...fallbackProfile,
+            ...(userDoc.data() as Partial<UserProfile>),
+          });
+        } else {
+          await setDoc(userDocRef, fallbackProfile);
+          setProfile(fallbackProfile);
+        }
+      } catch (error) {
+        console.error('Failed to load user profile from Firestore:', error);
+        // Keep auth usable even when Firestore rules/config fail.
+        setProfile(fallbackProfile);
+      } finally {
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();

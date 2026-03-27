@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db, collection, onSnapshot, query, where, doc, updateDoc, getDocs } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { Users, CheckCircle, Clock, QrCode, Shield, Search, Filter, Download, Camera, X } from 'lucide-react';
-import QrScanner from 'react-qr-scanner';
 import { toast } from 'sonner';
 
 interface Registration {
@@ -26,12 +25,27 @@ interface Event {
   registeredCount: number;
 }
 
+type DetectedBarcode = {
+  rawValue?: string;
+};
+
+type BarcodeDetectorInstance = {
+  detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]>;
+};
+
+type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorInstance;
+
 export default function AdminPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const frameRequestRef = useRef<number | null>(null);
+  const scannerActiveRef = useRef(false);
+  const scannerCooldownUntilRef = useRef(0);
   const { isAdmin } = useAuth();
 
   useEffect(() => {
@@ -54,36 +68,141 @@ export default function AdminPage() {
     };
   }, [isAdmin]);
 
-  const handleScan = async (data: any) => {
-    if (data) {
-      const qrData = data.text;
-      const reg = registrations.find(r => r.qrCode === qrData);
-      
-      if (reg) {
-        if (reg.attended) {
-          toast.info(`${reg.userName} has already checked in.`);
-        } else {
-          try {
-            await updateDoc(doc(db, 'registrations', reg.id), {
-              attended: true,
-              attendedAt: new Date().toISOString()
-            });
-            toast.success(`Check-in successful for ${reg.userName}!`);
-            setShowScanner(false);
-          } catch (error) {
-            toast.error('Failed to update attendance.');
-          }
-        }
-      } else {
-        toast.error('Invalid QR Code.');
-      }
-    }
-  };
+  const stopScanner = useCallback(() => {
+    scannerActiveRef.current = false;
 
-  const handleError = (err: any) => {
+    if (frameRequestRef.current !== null) {
+      cancelAnimationFrame(frameRequestRef.current);
+      frameRequestRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
+  const handleScan = useCallback(async (qrData: string) => {
+    const reg = registrations.find(r => r.qrCode === qrData);
+    
+    if (!reg) {
+      toast.error('Invalid QR Code.');
+      return false;
+    }
+
+    if (reg.attended) {
+      toast.info(`${reg.userName} has already checked in.`);
+      return false;
+    }
+
+    try {
+      await updateDoc(doc(db, 'registrations', reg.id), {
+        attended: true,
+        attendedAt: new Date().toISOString()
+      });
+      toast.success(`Check-in successful for ${reg.userName}!`);
+      setShowScanner(false);
+      return true;
+    } catch (error) {
+      toast.error('Failed to update attendance.');
+      return false;
+    }
+  }, [registrations]);
+
+  const handleError = useCallback((err: unknown) => {
     console.error(err);
     toast.error('Camera error. Please check permissions.');
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!showScanner) {
+      stopScanner();
+      return;
+    }
+
+    let canceled = false;
+    scannerCooldownUntilRef.current = 0;
+
+    const startScanner = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        toast.error('Camera access is not supported in this browser.');
+        return;
+      }
+
+      const BarcodeDetectorImpl = (window as Window & { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+
+      if (!BarcodeDetectorImpl) {
+        toast.error('QR scanning is not supported in this browser.');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+
+        if (canceled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+
+        if (!videoRef.current) {
+          stopScanner();
+          return;
+        }
+
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+
+        const detector = new BarcodeDetectorImpl({ formats: ['qr_code'] });
+        scannerActiveRef.current = true;
+
+        const scanFrame = async () => {
+          if (!scannerActiveRef.current || !videoRef.current) return;
+
+          try {
+            if (Date.now() >= scannerCooldownUntilRef.current) {
+              const barcodes = await detector.detect(videoRef.current);
+              const qrData = barcodes.find((barcode) => typeof barcode.rawValue === 'string' && barcode.rawValue.trim().length > 0)?.rawValue?.trim();
+
+              if (qrData) {
+                const isSuccess = await handleScan(qrData);
+                if (!isSuccess) {
+                  scannerCooldownUntilRef.current = Date.now() + 1500;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('QR detection error:', error);
+          } finally {
+            frameRequestRef.current = requestAnimationFrame(() => {
+              void scanFrame();
+            });
+          }
+        };
+
+        frameRequestRef.current = requestAnimationFrame(() => {
+          void scanFrame();
+        });
+      } catch (error) {
+        handleError(error);
+      }
+    };
+
+    void startScanner();
+
+    return () => {
+      canceled = true;
+      stopScanner();
+    };
+  }, [showScanner, handleScan, handleError, stopScanner]);
 
   if (!isAdmin) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">Access Denied. Admin only.</div>;
 
@@ -286,11 +405,12 @@ export default function AdminPage() {
               <p className="text-slate-400 mb-10">Align the QR code within the frame to verify attendance.</p>
 
               <div className="relative aspect-square w-full bg-black rounded-[32px] overflow-hidden border-4 border-indigo-500/30">
-                <QrScanner
-                  delay={300}
-                  onError={handleError}
-                  onScan={handleScan}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover"
+                  muted
+                  playsInline
+                  autoPlay
                 />
                 <div className="absolute inset-0 border-[40px] border-black/40 pointer-events-none" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-indigo-500 rounded-2xl animate-pulse" />

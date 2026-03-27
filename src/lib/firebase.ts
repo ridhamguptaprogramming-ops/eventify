@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, getDocs, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -8,6 +8,7 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Validate Connection to Firestore
 async function testConnection() {
@@ -21,5 +22,5 @@ async function testConnection() {
 }
 testConnection();
 
-export { signInWithPopup, signOut, onAuthStateChanged, collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, getDocs };
+export { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged, collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, getDocs };
 export type { FirebaseUser };
