@@ -1,5 +1,6 @@
 import React from 'react';
-import { Mail, Github, Twitter, Linkedin, Heart } from 'lucide-react';
+import { Github, Twitter, Linkedin, Heart } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
@@ -13,31 +14,45 @@ export default function Footer() {
               Elevate your experience with real-time analytics and seamless check-ins.
             </p>
             <div className="flex gap-4">
-              {[Twitter, Github, Linkedin].map((Icon, i) => (
-                <a key={i} href="#" className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all">
-                  <Icon size={20} />
-                </a>
-              ))}
+              {[
+                { icon: Twitter, label: 'Twitter', href: 'https://twitter.com' },
+                { icon: Github, label: 'GitHub', href: 'https://github.com' },
+                { icon: Linkedin, label: 'LinkedIn', href: 'https://www.linkedin.com' },
+              ].map((social) => {
+                const Icon = social.icon;
+                return (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={social.label}
+                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                  >
+                    <Icon size={20} />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
           <div>
             <h4 className="text-white font-bold mb-6">Platform</h4>
             <ul className="space-y-4 text-slate-400 text-sm">
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">How it Works</a></li>
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">Features</a></li>
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">Pricing</a></li>
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">API Docs</a></li>
+              <li><Link to="/" className="hover:text-indigo-400 transition-colors">Home</Link></li>
+              <li><Link to="/events" className="hover:text-indigo-400 transition-colors">Events</Link></li>
+              <li><Link to="/about" className="hover:text-indigo-400 transition-colors">About</Link></li>
+              <li><Link to="/dashboard" className="hover:text-indigo-400 transition-colors">Dashboard</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-white font-bold mb-6">Support</h4>
             <ul className="space-y-4 text-slate-400 text-sm">
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">Help Center</a></li>
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-indigo-400 transition-colors">Contact Us</a></li>
+              <li><a href="mailto:support@eventify.app" className="hover:text-indigo-400 transition-colors">Contact Support</a></li>
+              <li><a href="mailto:hello@eventify.app" className="hover:text-indigo-400 transition-colors">Partnerships</a></li>
+              <li><a href="mailto:privacy@eventify.app" className="hover:text-indigo-400 transition-colors">Privacy</a></li>
+              <li><a href="mailto:legal@eventify.app" className="hover:text-indigo-400 transition-colors">Terms</a></li>
             </ul>
           </div>
         </div>
