@@ -10,11 +10,12 @@ View your app in AI Studio: https://ai.studio/apps/9184e481-82d9-4c20-8b9d-4f555
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js, MongoDB
 
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Create `.env` (or copy `.env.example`) and set `MONGODB_URI`
+3. Set the `GEMINI_API_KEY` in `.env` if your flow uses Gemini
+4. Run the app:
    `npm run dev`

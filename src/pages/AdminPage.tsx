@@ -1,29 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { db, collection, onSnapshot, query, where, doc, updateDoc, getDocs } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { Users, CheckCircle, Clock, QrCode, Shield, Search, Filter, Download, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Registration {
-  id: string;
-  uid: string;
-  eventId: string;
-  eventTitle: string;
-  userName: string;
-  userEmail: string;
-  status: string;
-  attended: boolean;
-  registeredAt: string;
-  qrCode: string;
-}
-
-interface Event {
-  id: string;
-  title: string;
-  registeredCount: number;
-}
+import { Event, Registration, getAdminOverview, markRegistrationAttendance } from '../lib/api';
 
 type DetectedBarcode = {
   rawValue?: string;
@@ -49,22 +30,36 @@ export default function AdminPage() {
   const { isAdmin } = useAuth();
 
   useEffect(() => {
-    if (!isAdmin) return;
-
-    const unsubscribeRegs = onSnapshot(collection(db, 'registrations'), (snapshot) => {
-      const regs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Registration));
-      setRegistrations(regs);
+    if (!isAdmin) {
+      setRegistrations([]);
+      setEvents([]);
       setLoading(false);
-    });
+      return;
+    }
 
-    const unsubscribeEvents = onSnapshot(collection(db, 'events'), (snapshot) => {
-      const evs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
-      setEvents(evs);
-    });
+    let isMounted = true;
+
+    const loadOverview = async () => {
+      setLoading(true);
+      try {
+        const data = await getAdminOverview();
+        if (!isMounted) return;
+        setRegistrations(data.registrations);
+        setEvents(data.events);
+      } catch (error) {
+        console.error('Failed to load admin data from MongoDB API:', error);
+        toast.error('Failed to load admin data.');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadOverview();
 
     return () => {
-      unsubscribeRegs();
-      unsubscribeEvents();
+      isMounted = false;
     };
   }, [isAdmin]);
 
@@ -100,10 +95,14 @@ export default function AdminPage() {
     }
 
     try {
-      await updateDoc(doc(db, 'registrations', reg.id), {
-        attended: true,
-        attendedAt: new Date().toISOString()
-      });
+      await markRegistrationAttendance(reg.id, true);
+      setRegistrations((previous) =>
+        previous.map((registration) =>
+          registration.id === reg.id
+            ? { ...registration, attended: true, attendedAt: new Date().toISOString() }
+            : registration
+        )
+      );
       toast.success(`Check-in successful for ${reg.userName}!`);
       setShowScanner(false);
       return true;
@@ -362,9 +361,21 @@ export default function AdminPage() {
                     <td className="py-4 pr-4 text-right">
                       {!reg.attended && (
                         <button 
-                          onClick={() => {
-                            updateDoc(doc(db, 'registrations', reg.id), { attended: true, attendedAt: new Date().toISOString() });
-                            toast.success('Check-in successful!');
+                          onClick={async () => {
+                            try {
+                              await markRegistrationAttendance(reg.id, true);
+                              setRegistrations((previous) =>
+                                previous.map((registration) =>
+                                  registration.id === reg.id
+                                    ? { ...registration, attended: true, attendedAt: new Date().toISOString() }
+                                    : registration
+                                )
+                              );
+                              toast.success('Check-in successful!');
+                            } catch (error) {
+                              console.error('Failed to mark attendance from MongoDB API:', error);
+                              toast.error('Failed to update attendance.');
+                            }
                           }}
                           className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
                         >

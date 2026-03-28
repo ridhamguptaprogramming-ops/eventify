@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LogIn, LogOut, Shield, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,8 @@ function getLoginErrorMessage(code?: string) {
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const loginInProgressRef = useRef(false);
   const { user, isAdmin } = useAuth();
 
   useEffect(() => {
@@ -35,10 +37,23 @@ export default function Navbar() {
   }, []);
 
   const handleLogin = async () => {
+    if (loginInProgressRef.current) {
+      toast.info('Login is already in progress.');
+      return;
+    }
+
+    loginInProgressRef.current = true;
+    setIsLoggingIn(true);
+
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       const code = (error as { code?: string })?.code;
+      if (code === 'auth/cancelled-popup-request') {
+        toast.info('Login is already in progress.');
+        return;
+      }
+
       if (code === 'auth/popup-blocked') {
         toast.info(getLoginErrorMessage(code));
         try {
@@ -53,6 +68,9 @@ export default function Navbar() {
       }
       console.error('Login error:', error);
       toast.error(getLoginErrorMessage(code));
+    } finally {
+      loginInProgressRef.current = false;
+      setIsLoggingIn(false);
     }
   };
 
@@ -97,8 +115,14 @@ export default function Navbar() {
               </div>
             </>
           ) : (
-            <button onClick={handleLogin} className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full font-medium transition-all shadow-lg shadow-indigo-500/20">
-              <LogIn size={18} /> Login
+            <button
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              className={`flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-full font-medium transition-all shadow-lg shadow-indigo-500/20 ${
+                isLoggingIn ? 'opacity-70 cursor-not-allowed' : 'hover:bg-indigo-500'
+              }`}
+            >
+              <LogIn size={18} /> {isLoggingIn ? 'Logging in...' : 'Login'}
             </button>
           )}
         </div>
@@ -129,8 +153,14 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <button onClick={handleLogin} className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium">
-                <LogIn size={18} /> Login
+              <button
+                onClick={handleLogin}
+                disabled={isLoggingIn}
+                className={`flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium ${
+                  isLoggingIn ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
+              >
+                <LogIn size={18} /> {isLoggingIn ? 'Logging in...' : 'Login'}
               </button>
             )}
           </motion.div>

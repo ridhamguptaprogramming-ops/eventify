@@ -1,20 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { db, collection, query, where, onSnapshot, doc, getDoc } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { Calendar, MapPin, CheckCircle, Clock, QrCode, User, Mail, Shield, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface Registration {
-  id: string;
-  eventId: string;
-  eventTitle: string;
-  status: string;
-  attended: boolean;
-  registeredAt: string;
-  qrCode: string;
-}
+import { getRegistrations, Registration } from '../lib/api';
 
 export default function DashboardPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -23,19 +13,38 @@ export default function DashboardPage() {
   const { user, profile } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
-
-    const q = query(collection(db, 'registrations'), where('uid', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const regs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Registration));
-      setRegistrations(regs);
+    if (!user) {
+      setRegistrations([]);
+      setSelectedReg(null);
       setLoading(false);
-      if (regs.length > 0 && !selectedReg) {
-        setSelectedReg(regs[0]);
-      }
-    });
+      return;
+    }
 
-    return () => unsubscribe();
+    let isMounted = true;
+
+    const loadRegistrations = async () => {
+      setLoading(true);
+      try {
+        const regs = await getRegistrations({ uid: user.uid });
+        if (!isMounted) return;
+        setRegistrations(regs);
+        if (regs.length > 0 && !selectedReg) {
+          setSelectedReg(regs[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load registrations from MongoDB API:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadRegistrations();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   if (!user) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">Please login to view dashboard</div>;

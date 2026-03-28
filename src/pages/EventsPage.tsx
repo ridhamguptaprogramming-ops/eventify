@@ -1,80 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { db, collection, getDocs, onSnapshot, query, where, doc, setDoc } from '../lib/firebase';
 import { Calendar, MapPin, Users, ArrowRight, Search, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  venue: string;
-  image: string;
-  capacity: number;
-  registeredCount: number;
-}
+import { toast } from 'sonner';
+import { Event, getEvents } from '../lib/api';
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const { user } = useAuth();
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'events'), (snapshot) => {
-      const eventsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
-      setEvents(eventsData);
-      setLoading(false);
+    let isMounted = true;
 
-      // Seed mock data if empty
-      if (eventsData.length === 0) {
-        seedMockEvents();
+    const loadEvents = async () => {
+      try {
+        const eventsData = await getEvents();
+        if (isMounted) {
+          setEvents(eventsData);
+        }
+      } catch (error) {
+        console.error('Failed to load events from MongoDB API:', error);
+        toast.error('Failed to load events. Please refresh.');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    });
+    };
 
-    return () => unsubscribe();
+    void loadEvents();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  const seedMockEvents = async () => {
-    const mockEvents = [
-      {
-        id: '1',
-        title: 'TechX 2026: The AI Revolution',
-        description: 'Join industry leaders for a deep dive into the future of artificial intelligence and its impact on society.',
-        date: new Date(Date.now() + 86400000 * 7).toISOString(),
-        venue: 'Grand Innovation Hall, Silicon Valley',
-        image: 'https://picsum.photos/seed/tech/800/600',
-        capacity: 500,
-        registeredCount: 120
-      },
-      {
-        id: '2',
-        title: 'Design Systems Summit',
-        description: 'A gathering of world-class designers to discuss the evolution of design systems and user experience.',
-        date: new Date(Date.now() + 86400000 * 14).toISOString(),
-        venue: 'The Creative Hub, New York',
-        image: 'https://picsum.photos/seed/design/800/600',
-        capacity: 300,
-        registeredCount: 85
-      },
-      {
-        id: '3',
-        title: 'Cloud Native Day',
-        description: 'Everything you need to know about Kubernetes, serverless, and the modern cloud infrastructure.',
-        date: new Date(Date.now() + 86400000 * 21).toISOString(),
-        venue: 'Tech Park, London',
-        image: 'https://picsum.photos/seed/cloud/800/600',
-        capacity: 400,
-        registeredCount: 210
-      }
-    ];
-
-    for (const event of mockEvents) {
-      await setDoc(doc(db, 'events', event.id), event);
-    }
-  };
 
   const filteredEvents = events.filter(e => 
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

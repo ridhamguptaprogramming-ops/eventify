@@ -1,14 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db, onAuthStateChanged, doc, getDoc, setDoc, FirebaseUser } from '../lib/firebase';
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  role: 'admin' | 'user';
-  isVerified: boolean;
-  createdAt: string;
-}
+import { auth, onAuthStateChanged, FirebaseUser } from '../lib/firebase';
+import { getUserProfile, upsertUserProfile, UserProfile } from '../lib/api';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -42,7 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const userDocRef = doc(db, 'users', user.uid);
       const fallbackProfile: UserProfile = {
         uid: user.uid,
         email: user.email || '',
@@ -53,21 +44,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       try {
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          setProfile({
-            ...fallbackProfile,
-            ...(userDoc.data() as Partial<UserProfile>),
-          });
-        } else {
-          await setDoc(userDocRef, fallbackProfile);
+        const profileFromDb = await getUserProfile(user.uid);
+        setProfile({
+          ...fallbackProfile,
+          ...profileFromDb,
+        });
+      } catch (error) {
+        try {
+          const createdProfile = await upsertUserProfile(user.uid, fallbackProfile);
+          setProfile(createdProfile);
+        } catch (upsertError) {
+          console.error('Failed to load profile from MongoDB API:', error);
+          console.error('Failed to create fallback profile in MongoDB API:', upsertError);
+          // Keep auth usable even when API configuration fails.
           setProfile(fallbackProfile);
         }
-      } catch (error) {
-        console.error('Failed to load user profile from Firestore:', error);
-        // Keep auth usable even when Firestore rules/config fail.
-        setProfile(fallbackProfile);
       } finally {
         setLoading(false);
       }

@@ -1,23 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { db, doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from '../lib/firebase';
 import { Calendar, MapPin, Users, ArrowLeft, CheckCircle, Clock, Shield, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  venue: string;
-  image: string;
-  capacity: number;
-  registeredCount: number;
-  schedule?: { time: string; activity: string }[];
-  speakers?: { name: string; role: string; image: string }[];
-}
+import { Event, checkRegistration, createRegistration, getEventById } from '../lib/api';
 
 export default function EventDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,29 +12,61 @@ export default function EventDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
 
-    const fetchEvent = async () => {
-      const eventDoc = await getDoc(doc(db, 'events', id));
-      if (eventDoc.exists()) {
-        setEvent({ id: eventDoc.id, ...eventDoc.data() } as Event);
+    let isMounted = true;
+
+    const loadEvent = async () => {
+      try {
+        const eventData = await getEventById(id);
+        if (isMounted) {
+          setEvent(eventData);
+        }
+      } catch (error) {
+        console.error('Failed to load event from MongoDB API:', error);
+        toast.error('Failed to load event details.');
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
 
-    fetchEvent();
+    void loadEvent();
 
-    if (user) {
-      const q = query(collection(db, 'registrations'), where('eventId', '==', id), where('uid', '==', user.uid));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        setIsRegistered(!snapshot.empty);
-      });
-      return () => unsubscribe();
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !user) {
+      setIsRegistered(false);
+      return;
     }
+
+    let isMounted = true;
+
+    const loadRegistration = async () => {
+      try {
+        const status = await checkRegistration(user.uid, id);
+        if (isMounted) {
+          setIsRegistered(status.registered);
+        }
+      } catch (error) {
+        console.error('Failed to check registration from MongoDB API:', error);
+      }
+    };
+
+    void loadRegistration();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id, user]);
 
   const handleRegister = async () => {
@@ -60,24 +79,26 @@ export default function EventDetailsPage() {
 
     setRegistering(true);
     try {
-      const registrationId = `${user.uid}_${id}`;
-      await setDoc(doc(db, 'registrations', registrationId), {
+      await createRegistration({
         uid: user.uid,
         eventId: id,
-        eventTitle: event.title,
-        userEmail: user.email,
-        userName: user.displayName,
-        status: 'confirmed',
-        attended: false,
-        registeredAt: new Date().toISOString(),
-        qrCode: registrationId // Simple QR code data
+        userEmail: user.email ?? '',
+        userName: user.displayName ?? 'Event Attendee'
       });
 
       toast.success('Successfully registered for the event!');
       setIsRegistered(true);
+      setEvent((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          registeredCount: prev.registeredCount + 1,
+        };
+      });
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error('Failed to register. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to register. Please try again.';
+      toast.error(message);
     } finally {
       setRegistering(false);
     }
