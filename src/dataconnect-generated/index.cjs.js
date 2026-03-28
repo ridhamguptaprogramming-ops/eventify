@@ -1,4 +1,4 @@
-const { queryRef, executeQuery, validateArgsWithOptions, mutationRef, executeMutation, validateArgs } = require('firebase/data-connect');
+const { queryRef, executeQuery, mutationRef, executeMutation, validateArgs } = require('firebase/data-connect');
 
 const connectorConfig = {
   connector: 'example',
@@ -16,10 +16,8 @@ createMovieRef.operationName = 'CreateMovie';
 exports.createMovieRef = createMovieRef;
 
 exports.createMovie = function createMovie(dcOrVars, vars) {
-  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
-  return executeMutation(createMovieRef(dcInstance, inputVars));
-}
-;
+  return executeMutation(createMovieRef(dcOrVars, vars));
+};
 
 const upsertUserRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
@@ -30,10 +28,8 @@ upsertUserRef.operationName = 'UpsertUser';
 exports.upsertUserRef = upsertUserRef;
 
 exports.upsertUser = function upsertUser(dcOrVars, vars) {
-  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
-  return executeMutation(upsertUserRef(dcInstance, inputVars));
-}
-;
+  return executeMutation(upsertUserRef(dcOrVars, vars));
+};
 
 const addReviewRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
@@ -44,10 +40,8 @@ addReviewRef.operationName = 'AddReview';
 exports.addReviewRef = addReviewRef;
 
 exports.addReview = function addReview(dcOrVars, vars) {
-  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
-  return executeMutation(addReviewRef(dcInstance, inputVars));
-}
-;
+  return executeMutation(addReviewRef(dcOrVars, vars));
+};
 
 const deleteReviewRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
@@ -58,10 +52,8 @@ deleteReviewRef.operationName = 'DeleteReview';
 exports.deleteReviewRef = deleteReviewRef;
 
 exports.deleteReview = function deleteReview(dcOrVars, vars) {
-  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
-  return executeMutation(deleteReviewRef(dcInstance, inputVars));
-}
-;
+  return executeMutation(deleteReviewRef(dcOrVars, vars));
+};
 
 const listMoviesRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
@@ -71,12 +63,9 @@ const listMoviesRef = (dc) => {
 listMoviesRef.operationName = 'ListMovies';
 exports.listMoviesRef = listMoviesRef;
 
-exports.listMovies = function listMovies(dcOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
-  return executeQuery(listMoviesRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
+exports.listMovies = function listMovies(dc) {
+  return executeQuery(listMoviesRef(dc));
+};
 
 const listUsersRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
@@ -86,12 +75,9 @@ const listUsersRef = (dc) => {
 listUsersRef.operationName = 'ListUsers';
 exports.listUsersRef = listUsersRef;
 
-exports.listUsers = function listUsers(dcOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
-  return executeQuery(listUsersRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
+exports.listUsers = function listUsers(dc) {
+  return executeQuery(listUsersRef(dc));
+};
 
 const listUserReviewsRef = (dc) => {
   const { dc: dcInstance} = validateArgs(connectorConfig, dc, undefined);
@@ -101,12 +87,9 @@ const listUserReviewsRef = (dc) => {
 listUserReviewsRef.operationName = 'ListUserReviews';
 exports.listUserReviewsRef = listUserReviewsRef;
 
-exports.listUserReviews = function listUserReviews(dcOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
-  return executeQuery(listUserReviewsRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
+exports.listUserReviews = function listUserReviews(dc) {
+  return executeQuery(listUserReviewsRef(dc));
+};
 
 const getMovieByIdRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
@@ -116,12 +99,9 @@ const getMovieByIdRef = (dcOrVars, vars) => {
 getMovieByIdRef.operationName = 'GetMovieById';
 exports.getMovieByIdRef = getMovieByIdRef;
 
-exports.getMovieById = function getMovieById(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
-  return executeQuery(getMovieByIdRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
+exports.getMovieById = function getMovieById(dcOrVars, vars) {
+  return executeQuery(getMovieByIdRef(dcOrVars, vars));
+};
 
 const searchMovieRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars);
@@ -131,9 +111,6 @@ const searchMovieRef = (dcOrVars, vars) => {
 searchMovieRef.operationName = 'SearchMovie';
 exports.searchMovieRef = searchMovieRef;
 
-exports.searchMovie = function searchMovie(dcOrVars, varsOrOptions, options) {
-  
-  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, false);
-  return executeQuery(searchMovieRef(dcInstance, inputVars), inputOpts && inputOpts.fetchPolicy);
-}
-;
+exports.searchMovie = function searchMovie(dcOrVars, vars) {
+  return executeQuery(searchMovieRef(dcOrVars, vars));
+};

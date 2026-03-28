@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LogIn, LogOut, Shield, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { auth, googleProvider, signInWithPopup, signInWithRedirect, signOut } from '../lib/firebase';
-import { Link } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 function getLoginErrorMessage(code?: string) {
@@ -29,6 +29,11 @@ export default function Navbar() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const loginInProgressRef = useRef(false);
   const { user, isAdmin } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -82,6 +87,9 @@ export default function Navbar() {
     }
   };
 
+  const getNavLinkClasses = ({ isActive }: { isActive: boolean }) =>
+    `transition-colors ${isActive ? 'text-indigo-300' : 'text-white/80 hover:text-white'}`;
+
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/10 backdrop-blur-xl border-b border-white/20 py-3' : 'bg-transparent py-5'}`}>
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
@@ -94,15 +102,16 @@ export default function Navbar() {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-white/80 hover:text-white transition-colors">Home</Link>
-          <Link to="/events" className="text-white/80 hover:text-white transition-colors">Events</Link>
+          <NavLink to="/" className={getNavLinkClasses}>Home</NavLink>
+          <NavLink to="/events" className={getNavLinkClasses}>Events</NavLink>
+          <NavLink to="/about" className={getNavLinkClasses}>About</NavLink>
           {user ? (
             <>
-              <Link to="/dashboard" className="text-white/80 hover:text-white transition-colors">Dashboard</Link>
+              <NavLink to="/dashboard" className={getNavLinkClasses}>Dashboard</NavLink>
               {isAdmin && (
-                <Link to="/admin" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
+                <NavLink to="/admin" className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors">
                   <Shield size={16} /> Admin
-                </Link>
+                </NavLink>
               )}
               <div className="flex items-center gap-4 pl-4 border-l border-white/10">
                 <div className="flex items-center gap-2">
@@ -128,7 +137,12 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Toggle */}
-        <button className="md:hidden text-white" onClick={() => setIsOpen(!isOpen)}>
+        <button
+          className="md:hidden text-white"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label={isOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isOpen}
+        >
           {isOpen ? <X size={28} /> : <Menu size={28} />}
         </button>
       </div>
@@ -142,12 +156,13 @@ export default function Navbar() {
             exit={{ opacity: 0, y: -20 }}
             className="absolute top-full left-0 right-0 bg-slate-900/95 backdrop-blur-2xl border-b border-white/10 p-6 flex flex-col gap-4 md:hidden"
           >
-            <Link to="/" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Home</Link>
-            <Link to="/events" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Events</Link>
+            <NavLink to="/" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Home</NavLink>
+            <NavLink to="/events" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Events</NavLink>
+            <NavLink to="/about" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">About</NavLink>
             {user ? (
               <>
-                <Link to="/dashboard" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Dashboard</Link>
-                {isAdmin && <Link to="/admin" onClick={() => setIsOpen(false)} className="text-lg text-indigo-400 py-2">Admin Panel</Link>}
+                <NavLink to="/dashboard" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Dashboard</NavLink>
+                {isAdmin && <NavLink to="/admin" onClick={() => setIsOpen(false)} className="text-lg text-indigo-400 py-2">Admin Panel</NavLink>}
                 <button onClick={handleLogout} className="flex items-center gap-2 text-red-400 py-2">
                   <LogOut size={20} /> Logout
                 </button>

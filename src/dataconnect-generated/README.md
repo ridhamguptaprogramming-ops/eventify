@@ -69,7 +69,7 @@ Below are examples of how to use the `example` connector's generated functions t
 ## ListMovies
 You can execute the `ListMovies` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listMovies(options?: ExecuteQueryOptions): QueryPromise<ListMoviesData, undefined>;
+listMovies(): QueryPromise<ListMoviesData, undefined>;
 
 interface ListMoviesRef {
   ...
@@ -80,7 +80,7 @@ export const listMoviesRef: ListMoviesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listMovies(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListMoviesData, undefined>;
+listMovies(dc: DataConnect): QueryPromise<ListMoviesData, undefined>;
 
 interface ListMoviesRef {
   ...
@@ -165,7 +165,7 @@ executeQuery(ref).then((response) => {
 ## ListUsers
 You can execute the `ListUsers` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listUsers(options?: ExecuteQueryOptions): QueryPromise<ListUsersData, undefined>;
+listUsers(): QueryPromise<ListUsersData, undefined>;
 
 interface ListUsersRef {
   ...
@@ -176,7 +176,7 @@ export const listUsersRef: ListUsersRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listUsers(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListUsersData, undefined>;
+listUsers(dc: DataConnect): QueryPromise<ListUsersData, undefined>;
 
 interface ListUsersRef {
   ...
@@ -259,7 +259,7 @@ executeQuery(ref).then((response) => {
 ## ListUserReviews
 You can execute the `ListUserReviews` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-listUserReviews(options?: ExecuteQueryOptions): QueryPromise<ListUserReviewsData, undefined>;
+listUserReviews(): QueryPromise<ListUserReviewsData, undefined>;
 
 interface ListUserReviewsRef {
   ...
@@ -270,7 +270,7 @@ export const listUserReviewsRef: ListUserReviewsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-listUserReviews(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListUserReviewsData, undefined>;
+listUserReviews(dc: DataConnect): QueryPromise<ListUserReviewsData, undefined>;
 
 interface ListUserReviewsRef {
   ...
@@ -362,7 +362,7 @@ executeQuery(ref).then((response) => {
 ## GetMovieById
 You can execute the `GetMovieById` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-getMovieById(vars: GetMovieByIdVariables, options?: ExecuteQueryOptions): QueryPromise<GetMovieByIdData, GetMovieByIdVariables>;
+getMovieById(vars: GetMovieByIdVariables): QueryPromise<GetMovieByIdData, GetMovieByIdVariables>;
 
 interface GetMovieByIdRef {
   ...
@@ -373,7 +373,7 @@ export const getMovieByIdRef: GetMovieByIdRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-getMovieById(dc: DataConnect, vars: GetMovieByIdVariables, options?: ExecuteQueryOptions): QueryPromise<GetMovieByIdData, GetMovieByIdVariables>;
+getMovieById(dc: DataConnect, vars: GetMovieByIdVariables): QueryPromise<GetMovieByIdData, GetMovieByIdVariables>;
 
 interface GetMovieByIdRef {
   ...
@@ -490,7 +490,7 @@ executeQuery(ref).then((response) => {
 ## SearchMovie
 You can execute the `SearchMovie` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect-generated/index.d.ts](./index.d.ts):
 ```typescript
-searchMovie(vars?: SearchMovieVariables, options?: ExecuteQueryOptions): QueryPromise<SearchMovieData, SearchMovieVariables>;
+searchMovie(vars?: SearchMovieVariables): QueryPromise<SearchMovieData, SearchMovieVariables>;
 
 interface SearchMovieRef {
   ...
@@ -501,7 +501,7 @@ export const searchMovieRef: SearchMovieRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
 ```typescript
-searchMovie(dc: DataConnect, vars?: SearchMovieVariables, options?: ExecuteQueryOptions): QueryPromise<SearchMovieData, SearchMovieVariables>;
+searchMovie(dc: DataConnect, vars?: SearchMovieVariables): QueryPromise<SearchMovieData, SearchMovieVariables>;
 
 interface SearchMovieRef {
   ...
