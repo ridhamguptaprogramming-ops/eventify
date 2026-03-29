@@ -1,4 +1,4 @@
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,14 +13,52 @@ function getDefaultDateTimeLocal() {
 
 export default function CreateEventPage() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(getDefaultDateTimeLocal);
   const [venue, setVenue] = useState('');
-  const [image, setImage] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
+  const [uploadedImageName, setUploadedImageName] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
   const [imagePreviewError, setImagePreviewError] = useState(false);
   const [capacity, setCapacity] = useState('100');
+  const imagePreviewSrc = uploadedImageDataUrl ?? imageUrl.trim();
+
+  const handleImageFiles = (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload a valid image file.');
+      return;
+    }
+
+    const maxFileSizeBytes = 4 * 1024 * 1024;
+    if (file.size > maxFileSizeBytes) {
+      toast.error('Image must be 4MB or smaller.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        toast.error('Failed to read image file.');
+        return;
+      }
+
+      setUploadedImageDataUrl(reader.result);
+      setUploadedImageName(file.name);
+      setImagePreviewError(false);
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read image file.');
+    };
+
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -38,7 +76,7 @@ export default function CreateEventPage() {
         description: description.trim(),
         date: new Date(date).toISOString(),
         venue: venue.trim(),
-        image: image.trim(),
+        image: imagePreviewSrc,
         capacity: parsedCapacity,
       });
 
@@ -129,23 +167,74 @@ export default function CreateEventPage() {
 
             <div>
               <label htmlFor="image" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
-                Image URL (Optional)
+                Event Image
               </label>
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setIsDragOver(false);
+                  handleImageFiles(event.dataTransfer.files);
+                }}
+                className={`mb-4 rounded-2xl border-2 border-dashed p-5 text-center transition-colors ${
+                  isDragOver
+                    ? 'border-indigo-400 bg-indigo-500/10'
+                    : 'border-white/20 bg-white/5'
+                }`}
+              >
+                <p className="text-white font-medium mb-2">Drag & drop image here</p>
+                <p className="text-slate-400 text-sm mb-4">or</p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
+                >
+                  Choose Image File
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => handleImageFiles(event.target.files)}
+                />
+                {uploadedImageName && (
+                  <p className="mt-3 text-sm text-teal-300">Uploaded: {uploadedImageName}</p>
+                )}
+              </div>
+
               <input
                 id="image"
                 type="url"
-                value={image}
+                value={imageUrl}
                 onChange={(e) => {
-                  setImage(e.target.value);
+                  setImageUrl(e.target.value);
                   setImagePreviewError(false);
                 }}
                 className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="https://example.com/event-image.jpg"
+                placeholder="Optional image URL (used if no file is uploaded)"
               />
+              {uploadedImageDataUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadedImageDataUrl(null);
+                    setUploadedImageName('');
+                    setImagePreviewError(false);
+                  }}
+                  className="mt-3 text-sm text-slate-300 hover:text-white underline underline-offset-4 transition-colors"
+                >
+                  Remove uploaded image
+                </button>
+              )}
               <div className="mt-4 rounded-2xl border border-white/10 bg-[#111b31] overflow-hidden">
-                {image.trim() && !imagePreviewError ? (
+                {imagePreviewSrc && !imagePreviewError ? (
                   <img
-                    src={image.trim()}
+                    src={imagePreviewSrc}
                     alt="Event preview"
                     className="w-full h-56 object-cover"
                     referrerPolicy="no-referrer"
@@ -154,9 +243,9 @@ export default function CreateEventPage() {
                   />
                 ) : (
                   <div className="h-56 flex items-center justify-center text-slate-400 text-sm px-4 text-center">
-                    {image.trim()
+                    {imagePreviewSrc
                       ? 'Unable to load image preview. Please check the URL.'
-                      : 'Live preview will appear here when you enter an image URL.'}
+                      : 'Live preview will appear here after upload or image URL input.'}
                   </div>
                 )}
               </div>
