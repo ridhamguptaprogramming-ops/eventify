@@ -396,6 +396,37 @@ async function startServer() {
     res.json(mapRegistration(updated as RegistrationDocument));
   });
 
+  app.get("/api/admin/users", async (req, res) => {
+    const verifiedQuery = typeof req.query.verified === "string" ? req.query.verified : undefined;
+    const filter: { isVerified?: boolean } = {};
+
+    if (verifiedQuery === "true") {
+      filter.isVerified = true;
+    }
+
+    if (verifiedQuery === "false") {
+      filter.isVerified = false;
+    }
+
+    const users = await UserProfileModel.find(filter).sort({ createdAt: -1 }).lean();
+    res.json(users.map((user) => mapProfile(user as UserProfileDocument)));
+  });
+
+  app.patch("/api/admin/users/:uid/verify", async (req, res) => {
+    const updatedUser = await UserProfileModel.findByIdAndUpdate(
+      req.params.uid,
+      { isVerified: true },
+      { new: true }
+    ).lean();
+
+    if (!updatedUser) {
+      res.status(404).json({ message: "User profile not found" });
+      return;
+    }
+
+    res.json(mapProfile(updatedUser as UserProfileDocument));
+  });
+
   app.get("/api/admin/overview", async (_req, res) => {
     const [registrations, events] = await Promise.all([
       RegistrationModel.find({}).sort({ registeredAt: -1 }).lean(),

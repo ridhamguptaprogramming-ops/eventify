@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogIn, LogOut, Shield, Calendar } from 'lucide-react';
+import { Menu, X, LogIn, LogOut, Shield, Calendar, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { auth, googleProvider, signInWithPopup, signInWithRedirect, signOut } from '../lib/firebase';
 import { Link, NavLink, useLocation } from 'react-router-dom';
@@ -87,6 +87,32 @@ export default function Navbar() {
     }
   };
 
+  const handleShareApp = async () => {
+    const shareUrl = `${window.location.origin}/`;
+
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({
+          title: 'Eventify',
+          text: 'Check out Eventify',
+          url: shareUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('App link copied. Share it with others!');
+    } catch (error) {
+      const errorName = (error as { name?: string })?.name;
+      if (errorName === 'AbortError') {
+        return;
+      }
+
+      console.error('Failed to share app link:', error);
+      toast.error('Failed to share app link.');
+    }
+  };
+
   const getNavLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `transition-colors ${isActive ? 'text-indigo-300' : 'text-white/80 hover:text-white'}`;
 
@@ -105,6 +131,9 @@ export default function Navbar() {
           <NavLink to="/" className={getNavLinkClasses}>Home</NavLink>
           <NavLink to="/events" className={getNavLinkClasses}>Events</NavLink>
           <NavLink to="/about" className={getNavLinkClasses}>About</NavLink>
+          <button onClick={handleShareApp} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors">
+            <Share2 size={16} /> Share App
+          </button>
           {user ? (
             <>
               <NavLink to="/dashboard" className={getNavLinkClasses}>Dashboard</NavLink>
@@ -159,6 +188,9 @@ export default function Navbar() {
             <NavLink to="/" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Home</NavLink>
             <NavLink to="/events" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Events</NavLink>
             <NavLink to="/about" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">About</NavLink>
+            <button onClick={handleShareApp} className="flex items-center gap-2 text-lg text-white/80 py-2">
+              <Share2 size={18} /> Share App
+            </button>
             {user ? (
               <>
                 <NavLink to="/dashboard" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Dashboard</NavLink>

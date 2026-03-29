@@ -135,3 +135,13 @@ export function markRegistrationAttendance(id: string, attended = true) {
 export function getAdminOverview() {
   return apiRequest<{ registrations: Registration[]; events: Event[] }>("/api/admin/overview");
 }
+
+export function getUnverifiedUsers() {
+  return apiRequest<UserProfile[]>("/api/admin/users?verified=false");
+}
+
+export function verifyUser(uid: string) {
+  return apiRequest<UserProfile>(`/api/admin/users/${uid}/verify`, {
+    method: "PATCH",
+  });
+}

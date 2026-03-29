@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { Users, CheckCircle, Clock, QrCode, Shield, Search, Filter, Download, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Event, Registration, getAdminOverview, markRegistrationAttendance } from '../lib/api';
+import { Event, Registration, UserProfile, getAdminOverview, getUnverifiedUsers, markRegistrationAttendance, verifyUser } from '../lib/api';
 
 type DetectedBarcode = {
   rawValue?: string;
@@ -19,6 +19,9 @@ type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => Barc
 export default function AdminPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [unverifiedUsers, setUnverifiedUsers] = useState<UserProfile[]>([]);
+  const [unverifiedLoadError, setUnverifiedLoadError] = useState<string | null>(null);
+  const [verifyingUid, setVerifyingUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,6 +36,8 @@ export default function AdminPage() {
     if (!isAdmin) {
       setRegistrations([]);
       setEvents([]);
+      setUnverifiedUsers([]);
+      setUnverifiedLoadError(null);
       setLoading(false);
       return;
     }
@@ -41,6 +46,7 @@ export default function AdminPage() {
 
     const loadOverview = async () => {
       setLoading(true);
+      setUnverifiedLoadError(null);
       try {
         const data = await getAdminOverview();
         if (!isMounted) return;
@@ -53,6 +59,17 @@ export default function AdminPage() {
         if (isMounted) {
           setLoading(false);
         }
+      }
+
+      try {
+        const pendingUsers = await getUnverifiedUsers();
+        if (!isMounted) return;
+        setUnverifiedUsers(pendingUsers);
+      } catch (error) {
+        console.error('Failed to load unverified users from MongoDB API:', error);
+        if (!isMounted) return;
+        setUnverifiedUsers([]);
+        setUnverifiedLoadError('Could not load unverified accounts right now.');
       }
     };
 
@@ -203,6 +220,20 @@ export default function AdminPage() {
     };
   }, [showScanner, handleScan, handleError, stopScanner]);
 
+  const handleVerifyUser = async (uid: string) => {
+    setVerifyingUid(uid);
+    try {
+      const verifiedUser = await verifyUser(uid);
+      setUnverifiedUsers((previous) => previous.filter((user) => user.uid !== uid));
+      toast.success(`Verified ${verifiedUser.displayName || verifiedUser.email}`);
+    } catch (error) {
+      console.error('Failed to verify user from MongoDB API:', error);
+      toast.error('Failed to verify account.');
+    } finally {
+      setVerifyingUid(null);
+    }
+  };
+
   if (!isAdmin) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">Access Denied. Admin only.</div>;
 
   const stats = [
@@ -256,6 +287,61 @@ export default function AdminPage() {
               <h3 className="text-4xl font-black text-white">{stat.value}</h3>
             </motion.div>
           ))}
+        </div>
+
+        {/* Unverified Accounts Box */}
+        <div className="p-8 rounded-[32px] bg-white/5 border border-white/10 backdrop-blur-xl mb-12">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-white">Unverified Accounts</h3>
+              <p className="text-slate-400 text-sm mt-1">Admin action required: verify email accounts marked as unverified.</p>
+            </div>
+            <div className="px-4 py-2 rounded-xl bg-pink-500/20 text-pink-300 text-xs font-bold uppercase tracking-wider">
+              {unverifiedUsers.length} Unverified
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2].map((item) => (
+                <div key={item} className="h-16 bg-white/5 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          ) : unverifiedLoadError ? (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 py-5 px-6 text-amber-200 text-sm font-medium">
+              {unverifiedLoadError}
+            </div>
+          ) : unverifiedUsers.length === 0 ? (
+            <div className="rounded-2xl border border-teal-500/20 bg-teal-500/10 py-5 px-6 text-teal-300 text-sm font-medium">
+              All accounts are verified.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {unverifiedUsers.map((user) => (
+                <div
+                  key={user.uid}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div>
+                    <p className="text-white font-semibold">{user.displayName || 'User'}</p>
+                    <p className="text-slate-400 text-sm">{user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-pink-500/20 text-pink-300">
+                      Unverified
+                    </span>
+                    <button
+                      onClick={() => void handleVerifyUser(user.uid)}
+                      disabled={verifyingUid === user.uid}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 disabled:cursor-not-allowed text-white text-sm font-bold transition-all"
+                    >
+                      {verifyingUid === user.uid ? 'Verifying...' : 'Verify'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Charts Section */}
