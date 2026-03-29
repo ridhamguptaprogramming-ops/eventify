@@ -98,6 +98,11 @@ export default function EventsPage() {
                   <div className="absolute top-4 right-4 px-3 py-1 bg-indigo-600 rounded-full text-xs font-bold text-white uppercase tracking-wider">
                     {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </div>
+                  {event.streamingProvider && event.streamingProvider !== 'none' && (
+                    <div className="absolute top-4 left-4 px-3 py-1 bg-emerald-500 rounded-full text-xs font-bold text-white uppercase tracking-wider">
+                      {event.streamingProvider.replace('_', ' ')}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-8">

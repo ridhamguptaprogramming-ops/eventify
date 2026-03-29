@@ -25,18 +25,18 @@ const teamMembers = [
   {
     name: 'Ridham Gupta',
     role: 'Technical Lead',
-    image: '2.png',
-    contributions: 'Ridham — Technical ⚙️ is responsible for building and managing the community’s technical infrastructure, setting up organized channels, and integrating essential bots to ensure smooth communication, moderation, and an engaging user experience.',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
+    contributions: 'Ridham — Technical ⚙️ is responsible for building and managing the community technical infrastructure, setting up organized channels, and integrating essential bots to ensure smooth communication, moderation, and an engaging user experience.',
     linkedin: 'https://www.linkedin.com/in/ridham-gupta-09056a386/',
     instagram: 'https://www.instagram.com/i.ridhamgupta/',
   },
   {
     name: 'Pranav Sharma ',
     role: 'Event Manager + Networking Lead',
-    image: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=500&q=80',
+    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80',
     contributions: 'Firebase integration, API routes, and event CRUD logic with security rules.',
-    linkedin: 'https://linkedin.com/in/ravi-tech',
-    instagram: 'https://instagram.com/ravi.backend',
+    linkedin: 'https://www.linkedin.com/in/hackwithpranav/',
+    instagram: 'https://www.instagram.com/01pranav_sharma?igsh=MXczejU4bmUyb3Nqcg==',
   },
   {
     name: 'Arman Khan',
@@ -69,7 +69,6 @@ const teamMembers = [
     contributions: 'Onboarding, support workflows, and feedback loops for product-market fit.',
     linkedin: 'https://linkedin.com/in/samira-cs',
     instagram: 'https://instagram.com/samira.success',
-    github: 'https://github.com/samira-cs',
   },
   {
     name: 'Prince Yadav',
@@ -78,16 +77,15 @@ const teamMembers = [
     contributions: 'Event analytics, dashboard metrics, and KPI reporting for data-driven decisions.',
     linkedin: 'https://linkedin.com/in/ishan-data',
     instagram: 'https://instagram.com/ishan.data',
-    github: 'https://github.com/ishan-analytics',
+
   },
   {
-    name: 'Khushal',
+    name: 'Khushal Agarwal',
     role: 'Technical + Guest/Speaker Outreach',
     image: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Cross-platform mobile features, performance tuning, and user experience enhancements.',
-    linkedin: 'https://linkedin.com/in/priya-mobile',
-    instagram: 'https://instagram.com/priya.codes',
-    github: 'https://github.com/priya-mobile',
+    contributions: 'Full-Stack Developer, SDE Intern at Bluestock Fintech, and Founder of SakaarWeb, I build scalable GenAI products like my JEE Rank Predictor and Career Compass, a next-gen AI-powered job portal. Dedicated to digital transformation in Tier-2 and Tier-3 cities, I leverage my background with IIT entrepreneurship fests and PWSOS to bridge complex engineering with seamless UX. I’m always eager to collaborate on impactful tech—let’s build together!',
+    linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353?utm_source=share_via&utm_content=profile&utm_medium=member_android',
+    instagram: 'https://www.instagram.com/k_garg_4/',
   },
 ];
 

@@ -25,6 +25,8 @@ export default function CreateEventPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [imagePreviewError, setImagePreviewError] = useState(false);
   const [capacity, setCapacity] = useState('100');
+  const [streamingProvider, setStreamingProvider] = useState<'none' | 'google_meet' | 'youtube' | 'zoom' | 'custom'>('none');
+  const [streamingUrl, setStreamingUrl] = useState('');
   const imagePreviewSrc = uploadedImageDataUrl ?? imageUrl.trim();
 
   const handleImageFiles = (files: FileList | null) => {
@@ -70,6 +72,18 @@ export default function CreateEventPage() {
     }
 
     setSaving(true);
+    if (streamingProvider !== 'none' && streamingUrl.trim().length === 0) {
+      toast.error('Streaming URL is required when a streaming provider is selected.');
+      setSaving(false);
+      return;
+    }
+
+    if (streamingUrl.trim().length > 0 && !/^https?:\/\//i.test(streamingUrl.trim())) {
+      toast.error('Streaming URL must start with http:// or https://');
+      setSaving(false);
+      return;
+    }
+
     try {
       const created = await createEvent({
         title: title.trim(),
@@ -78,6 +92,8 @@ export default function CreateEventPage() {
         venue: venue.trim(),
         image: imagePreviewSrc,
         capacity: parsedCapacity,
+        streamingProvider: streamingProvider,
+        streamingUrl: streamingUrl.trim(),
       });
 
       toast.success('Event created successfully.');
@@ -164,6 +180,41 @@ export default function CreateEventPage() {
                 placeholder="Main Hall, City Center"
               />
             </div>
+
+            <div>
+              <label htmlFor="streamingProvider" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
+                Streaming Provider
+              </label>
+              <select
+                id="streamingProvider"
+                value={streamingProvider}
+                onChange={(e) => setStreamingProvider(e.target.value as 'none' | 'google_meet' | 'youtube' | 'zoom' | 'custom')}
+                className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="none">None / In-person only</option>
+                <option value="google_meet">Google Meet</option>
+                <option value="youtube">YouTube Live</option>
+                <option value="zoom">Zoom</option>
+                <option value="custom">Custom streaming URL</option>
+              </select>
+            </div>
+
+            {streamingProvider !== 'none' && (
+              <div>
+                <label htmlFor="streamingUrl" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
+                  Streaming URL
+                </label>
+                <input
+                  id="streamingUrl"
+                  type="url"
+                  value={streamingUrl}
+                  onChange={(e) => setStreamingUrl(e.target.value)}
+                  required
+                  className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="https://meet.google.com/xxx-xxxx-xxx"
+                />
+              </div>
+            )}
 
             <div>
               <label htmlFor="image" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">

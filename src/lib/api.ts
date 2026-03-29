@@ -8,6 +8,8 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export type StreamingProvider = 'google_meet' | 'youtube' | 'zoom' | 'custom' | 'none';
+
 export interface Event {
   id: string;
   title: string;
@@ -19,6 +21,8 @@ export interface Event {
   registeredCount: number;
   schedule?: { time: string; activity: string }[];
   speakers?: { name: string; role: string; image: string }[];
+  streamingProvider?: StreamingProvider;
+  streamingUrl?: string;
 }
 
 export interface CreateEventInput {
@@ -28,6 +32,8 @@ export interface CreateEventInput {
   venue: string;
   image?: string;
   capacity: number;
+  streamingProvider?: StreamingProvider;
+  streamingUrl?: string;
 }
 
 export interface Registration {

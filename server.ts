@@ -34,6 +34,8 @@ interface UserProfileDocument {
   createdAt: string;
 }
 
+type StreamingProvider = 'google_meet' | 'youtube' | 'zoom' | 'custom' | 'none';
+
 interface EventDocument {
   _id: string;
   title: string;
@@ -43,6 +45,8 @@ interface EventDocument {
   image: string;
   capacity: number;
   registeredCount: number;
+  streamingProvider?: StreamingProvider;
+  streamingUrl?: string;
 }
 
 interface RegistrationDocument {
@@ -82,6 +86,12 @@ const eventSchema = new mongoose.Schema<EventDocument>(
     image: { type: String, required: true },
     capacity: { type: Number, required: true },
     registeredCount: { type: Number, default: 0 },
+    streamingProvider: {
+      type: String,
+      enum: ['google_meet', 'youtube', 'zoom', 'custom', 'none'],
+      default: 'none',
+    },
+    streamingUrl: { type: String, required: false },
   },
   { versionKey: false }
 );
@@ -173,6 +183,8 @@ function mapEvent(doc: EventDocument) {
     image: doc.image,
     capacity: doc.capacity,
     registeredCount: doc.registeredCount,
+    streamingProvider: doc.streamingProvider || 'none',
+    streamingUrl: doc.streamingUrl || '',
   };
 }
 
@@ -314,6 +326,17 @@ async function startServer() {
       return;
     }
 
+    const streamingProvider =
+      payload.streamingProvider && ['google_meet', 'youtube', 'zoom', 'custom', 'none'].includes(payload.streamingProvider)
+        ? (payload.streamingProvider as StreamingProvider)
+        : 'none';
+    const streamingUrl = (payload.streamingUrl ?? '').trim();
+
+    if (streamingProvider !== 'none' && streamingUrl && !/^https?:\/\//i.test(streamingUrl)) {
+      res.status(400).json({ message: 'streamingUrl must be a valid HTTP/HTTPS URL' });
+      return;
+    }
+
     const newEvent = await EventModel.create({
       _id: createEventId(),
       title,
@@ -323,6 +346,8 @@ async function startServer() {
       image: image || `https://picsum.photos/seed/${Date.now()}/800/600`,
       capacity,
       registeredCount: 0,
+      streamingProvider,
+      streamingUrl,
     });
 
     res.status(201).json(mapEvent(newEvent.toObject() as EventDocument));

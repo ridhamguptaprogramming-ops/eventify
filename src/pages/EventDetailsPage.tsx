@@ -143,7 +143,27 @@ export default function EventDetailsPage() {
               <div className="p-10">
                 <div className="prose prose-invert max-w-none">
                   <h2 className="text-2xl font-bold text-white mb-6">About the Event</h2>
-                  <p className="text-slate-400 text-lg leading-relaxed mb-12">{event.description}</p>
+                  <p className="text-slate-400 text-lg leading-relaxed mb-6">{event.description}</p>
+
+                  {event.streamingProvider && event.streamingProvider !== 'none' && event.streamingUrl && (
+                    <div className="mb-8 p-6 rounded-2xl border border-teal-400/30 bg-teal-500/10">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold text-teal-200">Live stream details</h3>
+                        <span className="text-sm uppercase tracking-wider text-teal-100">{event.streamingProvider.replace('_', ' ')}</span>
+                      </div>
+                      <p className="text-slate-300 text-sm mb-4">
+                        This event includes a live stream. Click the button below to open the meeting link.
+                      </p>
+                      <a
+                        href={event.streamingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-5 py-3 bg-teal-500 hover:bg-teal-400 text-white rounded-xl font-bold"
+                      >
+                        Join Stream
+                      </a>
+                    </div>
+                  )}
 
                   <h2 className="text-2xl font-bold text-white mb-8">Event Schedule</h2>
                   <div className="space-y-6 mb-12">
