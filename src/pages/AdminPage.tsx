@@ -223,9 +223,12 @@ export default function AdminPage() {
   const handleVerifyUser = async (uid: string) => {
     setVerifyingUid(uid);
     try {
-      const verifiedUser = await verifyUser(uid);
+      const verifiedUser = await verifyUser(uid) as any;
       setUnverifiedUsers((previous) => previous.filter((user) => user.uid !== uid));
-      toast.success(`Verified ${verifiedUser.displayName || verifiedUser.email}`);
+      const nameOrEmail = verifiedUser.displayName || verifiedUser.email || uid;
+      const qrText = verifiedUser.verificationQRCode ? ` (QR: ${verifiedUser.verificationQRCode})` : '';
+      const message = verifiedUser.message ?? 'User verified and verification email sent.';
+      toast.success(`${nameOrEmail} verified. ${message}${qrText}`);
     } catch (error) {
       console.error('Failed to verify user from MongoDB API:', error);
       toast.error('Failed to verify account.');
