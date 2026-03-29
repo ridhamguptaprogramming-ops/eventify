@@ -139,8 +139,9 @@ export default function AdminPage() {
   }, [registrations]);
 
   const handleError = useCallback((err: unknown) => {
-    console.error(err);
-    toast.error('Camera error. Please check permissions.');
+    console.error('QR scanner camera error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    toast.error(`Camera error: ${message}. Please check permissions.`);
   }, []);
 
   useEffect(() => {

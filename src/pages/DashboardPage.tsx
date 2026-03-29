@@ -84,6 +84,15 @@ export default function DashboardPage() {
                     <p className="text-white font-medium">{profile?.isVerified ? 'Verified' : 'Pending Verification'}</p>
                   </div>
                 </div>
+                {profile?.verificationQRCode && (
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                    <p className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-2">Verification QR</p>
+                    <div className="flex items-center justify-center">
+                      <QRCodeSVG value={profile.verificationQRCode} size={120} />
+                    </div>
+                    <p className="text-slate-300 text-xs mt-2 break-words">{profile.verificationQRCode}</p>
+                  </div>
+                )}
               </div>
             </motion.div>
 

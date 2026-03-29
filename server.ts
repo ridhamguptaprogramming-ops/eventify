@@ -30,6 +30,7 @@ interface UserProfileDocument {
   displayName: string;
   role: UserRole;
   isVerified: boolean;
+  verificationQRCode?: string;
   createdAt: string;
 }
 
@@ -491,8 +492,6 @@ async function startServer() {
       res.status(404).json({ message: "User profile not found" });
       return;
     }
-
-    const qrValue = `verification:${updatedUser._id}:${Date.now()}`;
 
     try {
       await sendVerificationEmail(updatedUser.email, updatedUser.displayName, qrValue);
