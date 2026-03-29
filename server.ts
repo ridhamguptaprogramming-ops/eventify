@@ -16,6 +16,12 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT ?? 3000);
 const MONGODB_URI = process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/eventify";
 
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = Number(process.env.SMTP_PORT ?? 587);
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const MAIL_FROM = process.env.MAIL_FROM ?? "no-reply@eventify.example.com";
+
 type UserRole = "admin" | "user";
 
 interface UserProfileDocument {
@@ -185,6 +191,64 @@ function mapRegistration(doc: RegistrationDocument) {
     qrCode: doc.qrCode,
     attendedAt: doc.attendedAt,
   };
+}
+
+async function createMailTransporter() {
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+    return nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+      },
+    });
+  }
+
+  const testAccount = await nodemailer.createTestAccount();
+  console.info("Using ethereal email for verification notifications:", testAccount.user);
+
+  return nodemailer.createTransport({
+    host: testAccount.smtp.host,
+    port: testAccount.smtp.port,
+    secure: testAccount.smtp.secure,
+    auth: {
+      user: testAccount.user,
+      pass: testAccount.pass,
+    },
+  });
+}
+
+async function sendVerificationEmail(email: string, displayName: string, qrValue: string) {
+  const transporter = await createMailTransporter();
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrValue)}`;
+
+  const subject = "Your Eventify verification is complete";
+  const text = `Hello ${displayName || "user"},\n\nYour account is now officially verified.\n\nVerification code: ${qrValue}\n\nUse this QR code to access your verified services or entry tickets.\n\nThank you!`;
+  const html = `
+    <p>Hello ${displayName || "user"},</p>
+    <p>Your account is now officially <strong>verified</strong>.</p>
+    <p>QR data: <code>${qrValue}</code></p>
+    <p><img src="${qrImageUrl}" alt="Verification QR code" style="max-width: 300px;"/></p>
+    <p>Save this message for your records and use the QR code when required.</p>
+    <p>Thanks,<br/>Eventify Team</p>
+  `;
+
+  const info = await transporter.sendMail({
+    from: MAIL_FROM,
+    to: email,
+    subject,
+    text,
+    html,
+  });
+
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.info("Verification email preview URL: ", previewUrl);
+  }
+
+  return info;
 }
 
 async function connectToMongoDB() {
@@ -424,7 +488,24 @@ async function startServer() {
       return;
     }
 
-    res.json(mapProfile(updatedUser as UserProfileDocument));
+    const qrValue = `verification:${updatedUser._id}:${Date.now()}`;
+
+    try {
+      await sendVerificationEmail(updatedUser.email, updatedUser.displayName, qrValue);
+    } catch (error) {
+      console.error("Failed to send verification email:", error);
+      // Continue to return success for verification, but inform in response.
+      return res.status(200).json({
+        ...mapProfile(updatedUser as UserProfileDocument),
+        warning: "User verified, but email notification failed.",
+      });
+    }
+
+    res.json({
+      ...mapProfile(updatedUser as UserProfileDocument),
+      verificationQRCode: qrValue,
+      message: "User verified and notification email sent.",
+    });
   });
 
   app.get("/api/admin/overview", async (_req, res) => {
@@ -441,11 +522,18 @@ async function startServer() {
     });
   });
 
-  // Mock Email Verification for Demo (since we don't have real SMTP credentials)
+  // Verify email endpoint (mock for demo)
   app.post("/api/verify-email", async (req, res) => {
     const { email, token } = req.body;
     // In a real app, you'd verify the token in your database
-    res.json({ success: true, message: "Email verified successfully!" });
+    const qrValue = `verification:${email}:${Date.now()}`;
+    try {
+      await sendVerificationEmail(email, email, qrValue);
+      res.json({ success: true, message: "Email verified successfully!", verificationQRCode: qrValue });
+    } catch (error) {
+      console.error("Failed to send verification email:", error);
+      res.status(500).json({ success: false, message: "Email verified but notification failed." });
+    }
   });
 
   // Admin Analytics Route
