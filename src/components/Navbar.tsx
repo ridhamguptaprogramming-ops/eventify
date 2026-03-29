@@ -131,6 +131,7 @@ export default function Navbar() {
           <NavLink to="/" className={getNavLinkClasses}>Home</NavLink>
           <NavLink to="/events" className={getNavLinkClasses}>Events</NavLink>
           <NavLink to="/about" className={getNavLinkClasses}>About</NavLink>
+          <NavLink to="/help" className={getNavLinkClasses}>Help</NavLink>
           <button onClick={handleShareApp} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors">
             <Share2 size={16} /> Share App
           </button>
@@ -188,6 +189,7 @@ export default function Navbar() {
             <NavLink to="/" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Home</NavLink>
             <NavLink to="/events" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Events</NavLink>
             <NavLink to="/about" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">About</NavLink>
+            <NavLink to="/help" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Help</NavLink>
             <button onClick={handleShareApp} className="flex items-center gap-2 text-lg text-white/80 py-2">
               <Share2 size={18} /> Share App
             </button>
