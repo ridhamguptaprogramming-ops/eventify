@@ -4,6 +4,7 @@ export interface UserProfile {
   displayName: string;
   role: "admin" | "user";
   isVerified: boolean;
+  verificationQRCode?: string;
   createdAt: string;
 }
 
@@ -138,6 +139,10 @@ export function getAdminOverview() {
 
 export function getUnverifiedUsers() {
   return apiRequest<UserProfile[]>("/api/admin/users?verified=false");
+}
+
+export function getVerifiedUsers() {
+  return apiRequest<UserProfile[]>("/api/admin/users?verified=true");
 }
 
 export function verifyUser(uid: string) {

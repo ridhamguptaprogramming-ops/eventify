@@ -65,6 +65,7 @@ const userProfileSchema = new mongoose.Schema<UserProfileDocument>(
     displayName: { type: String, required: true },
     role: { type: String, enum: ["admin", "user"], default: "user" },
     isVerified: { type: Boolean, default: false },
+    verificationQRCode: { type: String, required: false },
     createdAt: { type: String, required: true },
   },
   { versionKey: false }
@@ -156,6 +157,7 @@ function mapProfile(doc: UserProfileDocument) {
     displayName: doc.displayName,
     role: doc.role,
     isVerified: doc.isVerified,
+    verificationQRCode: (doc as unknown as { verificationQRCode?: string }).verificationQRCode,
     createdAt: doc.createdAt,
   };
 }
@@ -355,6 +357,7 @@ async function startServer() {
         displayName: payload.displayName ?? "",
         role: payload.role ?? "user",
         isVerified: payload.isVerified ?? false,
+        verificationQRCode: (payload as unknown as { verificationQRCode?: string }).verificationQRCode,
         createdAt: payload.createdAt ?? new Date().toISOString(),
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -477,9 +480,10 @@ async function startServer() {
   });
 
   app.patch("/api/admin/users/:uid/verify", async (req, res) => {
+    const qrValue = `verification:${req.params.uid}:${Date.now()}`;
     const updatedUser = await UserProfileModel.findByIdAndUpdate(
       req.params.uid,
-      { isVerified: true },
+      { isVerified: true, verificationQRCode: qrValue },
       { new: true }
     ).lean();
 

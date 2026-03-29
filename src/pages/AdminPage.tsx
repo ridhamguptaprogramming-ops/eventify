@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { Users, CheckCircle, Clock, QrCode, Shield, Search, Filter, Download, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Event, Registration, UserProfile, getAdminOverview, getUnverifiedUsers, markRegistrationAttendance, verifyUser } from '../lib/api';
+import { Event, Registration, UserProfile, getAdminOverview, getUnverifiedUsers, getVerifiedUsers, markRegistrationAttendance, verifyUser } from '../lib/api';
 
 type DetectedBarcode = {
   rawValue?: string;
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [unverifiedUsers, setUnverifiedUsers] = useState<UserProfile[]>([]);
+  const [verifiedUsers, setVerifiedUsers] = useState<Array<UserProfile & { verificationQRCode?: string }>>([]);
   const [unverifiedLoadError, setUnverifiedLoadError] = useState<string | null>(null);
   const [verifyingUid, setVerifyingUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,14 @@ export default function AdminPage() {
         if (!isMounted) return;
         setUnverifiedUsers([]);
         setUnverifiedLoadError('Could not load unverified accounts right now.');
+      }
+
+      try {
+        const verified = await getVerifiedUsers();
+        if (!isMounted) return;
+        setVerifiedUsers(verified);
+      } catch (error) {
+        console.error('Failed to load verified users from MongoDB API:', error);
       }
     };
 
@@ -225,6 +234,10 @@ export default function AdminPage() {
     try {
       const verifiedUser = await verifyUser(uid) as any;
       setUnverifiedUsers((previous) => previous.filter((user) => user.uid !== uid));
+      setVerifiedUsers((previous) => [
+        ...previous,
+        { ...verifiedUser, verificationQRCode: verifiedUser.verificationQRCode },
+      ]);
       const nameOrEmail = verifiedUser.displayName || verifiedUser.email || uid;
       const qrText = verifiedUser.verificationQRCode ? ` (QR: ${verifiedUser.verificationQRCode})` : '';
       const message = verifiedUser.message ?? 'User verified and verification email sent.';
@@ -341,6 +354,48 @@ export default function AdminPage() {
                       {verifyingUid === user.uid ? 'Verifying...' : 'Verify'}
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Verified Users Cards */}
+        <div className="p-8 rounded-[32px] bg-white/5 border border-white/10 backdrop-blur-xl mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold text-white">Verified Users</h3>
+            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300">
+              {verifiedUsers.length} Verified
+            </span>
+          </div>
+
+          {verifiedUsers.length === 0 ? (
+            <div className="rounded-2xl border border-teal-500/20 bg-teal-500/10 py-5 px-6 text-teal-300 text-sm font-medium">
+              No verified users yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {verifiedUsers.map((user) => (
+                <div key={user.uid} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="flex justify-between gap-4 mb-3">
+                    <div>
+                      <p className="text-white font-semibold">{user.displayName || 'User'}</p>
+                      <p className="text-slate-400 text-sm">{user.email}</p>
+                    </div>
+                    <span className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300">Verified</span>
+                  </div>
+                  {user.verificationQRCode ? (
+                    <div className="space-y-3">
+                      <p className="text-slate-400 text-xs break-words">QR: {user.verificationQRCode}</p>
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(user.verificationQRCode)}`}
+                        alt="Verified user QR code"
+                        className="w-[150px] h-[150px] rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-xs">No QR data available</p>
+                  )}
                 </div>
               ))}
             </div>
