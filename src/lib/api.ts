@@ -20,6 +20,15 @@ export interface Event {
   speakers?: { name: string; role: string; image: string }[];
 }
 
+export interface CreateEventInput {
+  title: string;
+  description: string;
+  date: string;
+  venue: string;
+  image?: string;
+  capacity: number;
+}
+
 export interface Registration {
   id: string;
   uid: string;
@@ -69,6 +78,13 @@ export function getEvents() {
 
 export function getEventById(id: string) {
   return apiRequest<Event>(`/api/events/${id}`);
+}
+
+export function createEvent(payload: CreateEventInput) {
+  return apiRequest<Event>("/api/events", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getUserProfile(uid: string) {

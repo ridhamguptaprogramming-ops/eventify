@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Users, ArrowRight, Search, Filter } from 'lucide-react';
+import { Calendar, MapPin, Users, ArrowRight, Search, Filter, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Event, getEvents } from '../lib/api';
@@ -9,7 +9,6 @@ export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
   useEffect(() => {
     let isMounted = true;
 
@@ -50,7 +49,13 @@ export default function EventsPage() {
             <p className="text-slate-400 text-lg">Discover and register for the most innovative events in technology and design.</p>
           </div>
           
-          <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+            <Link
+                to="/events/new"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-white font-bold transition-all whitespace-nowrap"
+              >
+                <Plus size={18} /> Add New Event
+              </Link>
             <div className="relative flex-1 md:w-80">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
               <input 

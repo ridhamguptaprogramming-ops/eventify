@@ -167,6 +167,10 @@ function mapEvent(doc: EventDocument) {
   };
 }
 
+function createEventId() {
+  return new mongoose.Types.ObjectId().toString();
+}
+
 function mapRegistration(doc: RegistrationDocument) {
   return {
     id: doc._id,
@@ -215,6 +219,46 @@ async function startServer() {
   app.get("/api/events", async (_req, res) => {
     const events = await EventModel.find({}).sort({ date: 1 }).lean();
     res.json(events.map((event) => mapEvent(event as EventDocument)));
+  });
+
+  app.post("/api/events", async (req, res) => {
+    const payload = req.body as Partial<EventDocument>;
+
+    const title = (payload.title ?? "").trim();
+    const description = (payload.description ?? "").trim();
+    const venue = (payload.venue ?? "").trim();
+    const image = (payload.image ?? "").trim();
+    const capacity = Number(payload.capacity);
+    const date = (payload.date ?? "").trim();
+
+    if (!title || !description || !venue || !date) {
+      res.status(400).json({ message: "title, description, venue and date are required" });
+      return;
+    }
+
+    if (Number.isNaN(capacity) || capacity < 1) {
+      res.status(400).json({ message: "capacity must be a number greater than 0" });
+      return;
+    }
+
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.valueOf())) {
+      res.status(400).json({ message: "date must be a valid date string" });
+      return;
+    }
+
+    const newEvent = await EventModel.create({
+      _id: createEventId(),
+      title,
+      description,
+      date: parsedDate.toISOString(),
+      venue,
+      image: image || `https://picsum.photos/seed/${Date.now()}/800/600`,
+      capacity,
+      registeredCount: 0,
+    });
+
+    res.status(201).json(mapEvent(newEvent.toObject() as EventDocument));
   });
 
   app.get("/api/events/:id", async (req, res) => {

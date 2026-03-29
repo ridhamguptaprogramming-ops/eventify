@@ -10,6 +10,7 @@ import EventDetailsPage from './pages/EventDetailsPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
 import AboutPage from './pages/AboutPage';
+import CreateEventPage from './pages/CreateEventPage';
 
 const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) => {
   const { user, profile, loading, isAdmin } = useAuth();
@@ -29,6 +30,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/events/new" element={<CreateEventPage />} />
           <Route path="/events/:id" element={<EventDetailsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route 
