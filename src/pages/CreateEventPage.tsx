@@ -25,6 +25,7 @@ export default function CreateEventPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [imagePreviewError, setImagePreviewError] = useState(false);
   const [capacity, setCapacity] = useState('100');
+  const [ticketPrice, setTicketPrice] = useState('0');
   const [streamingProvider, setStreamingProvider] = useState<'none' | 'google_meet' | 'youtube' | 'zoom' | 'custom'>('none');
   const [streamingUrl, setStreamingUrl] = useState('');
   const imagePreviewSrc = uploadedImageDataUrl ?? imageUrl.trim();
@@ -70,6 +71,11 @@ export default function CreateEventPage() {
       toast.error('Capacity must be greater than 0.');
       return;
     }
+    const parsedTicketPrice = Number(ticketPrice);
+    if (Number.isNaN(parsedTicketPrice) || parsedTicketPrice < 0) {
+      toast.error('Ticket price must be 0 or more.');
+      return;
+    }
 
     setSaving(true);
     if (streamingProvider !== 'none' && streamingUrl.trim().length === 0) {
@@ -92,6 +98,7 @@ export default function CreateEventPage() {
         venue: venue.trim(),
         image: imagePreviewSrc,
         capacity: parsedCapacity,
+        ticketPrice: Math.round(parsedTicketPrice * 100) / 100,
         streamingProvider: streamingProvider,
         streamingUrl: streamingUrl.trim(),
       });
@@ -135,7 +142,7 @@ export default function CreateEventPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label htmlFor="date" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
                   Date & Time
@@ -160,6 +167,22 @@ export default function CreateEventPage() {
                   min={1}
                   value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
+                  required
+                  className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="ticketPrice" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
+                  Ticket Price (INR)
+                </label>
+                <input
+                  id="ticketPrice"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={ticketPrice}
+                  onChange={(e) => setTicketPrice(e.target.value)}
                   required
                   className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />

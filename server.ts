@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ const SMTP_PORT = Number(process.env.SMTP_PORT ?? 587);
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const MAIL_FROM = process.env.MAIL_FROM ?? "no-reply@eventify.example.com";
+const UPI_PAYEE_VPA = process.env.UPI_PAYEE_VPA ?? "";
+const UPI_PAYEE_NAME = process.env.UPI_PAYEE_NAME ?? "Eventify";
 
 type UserRole = "admin" | "user";
 
@@ -45,6 +48,7 @@ interface EventDocument {
   image: string;
   capacity: number;
   registeredCount: number;
+  ticketPrice: number;
   streamingProvider?: StreamingProvider;
   streamingUrl?: string;
 }
@@ -86,6 +90,7 @@ const eventSchema = new mongoose.Schema<EventDocument>(
     image: { type: String, required: true },
     capacity: { type: Number, required: true },
     registeredCount: { type: Number, default: 0 },
+    ticketPrice: { type: Number, default: 0 },
     streamingProvider: {
       type: String,
       enum: ['google_meet', 'youtube', 'zoom', 'custom', 'none'],
@@ -136,6 +141,7 @@ const DEFAULT_EVENTS: EventDocument[] = [
     image: "https://picsum.photos/seed/tech/800/600",
     capacity: 500,
     registeredCount: 120,
+    ticketPrice: 799,
   },
   {
     _id: "2",
@@ -147,6 +153,7 @@ const DEFAULT_EVENTS: EventDocument[] = [
     image: "https://picsum.photos/seed/design/800/600",
     capacity: 300,
     registeredCount: 85,
+    ticketPrice: 499,
   },
   {
     _id: "3",
@@ -158,6 +165,7 @@ const DEFAULT_EVENTS: EventDocument[] = [
     image: "https://picsum.photos/seed/cloud/800/600",
     capacity: 400,
     registeredCount: 210,
+    ticketPrice: 999,
   },
 ];
 
@@ -174,6 +182,7 @@ function mapProfile(doc: UserProfileDocument) {
 }
 
 function mapEvent(doc: EventDocument) {
+  const maybeTicketPrice = (doc as unknown as { ticketPrice?: number }).ticketPrice;
   return {
     id: doc._id,
     title: doc.title,
@@ -183,6 +192,7 @@ function mapEvent(doc: EventDocument) {
     image: doc.image,
     capacity: doc.capacity,
     registeredCount: doc.registeredCount,
+    ticketPrice: typeof maybeTicketPrice === "number" ? maybeTicketPrice : 0,
     streamingProvider: doc.streamingProvider || 'none',
     streamingUrl: doc.streamingUrl || '',
   };
@@ -309,6 +319,9 @@ async function startServer() {
     const image = (payload.image ?? "").trim();
     const capacity = Number(payload.capacity);
     const date = (payload.date ?? "").trim();
+    const ticketPriceInput = (payload as Partial<EventDocument> & { ticketPrice?: number }).ticketPrice;
+    const ticketPrice =
+      ticketPriceInput === undefined || ticketPriceInput === null ? 0 : Number(ticketPriceInput);
 
     if (!title || !description || !venue || !date) {
       res.status(400).json({ message: "title, description, venue and date are required" });
@@ -317,6 +330,11 @@ async function startServer() {
 
     if (Number.isNaN(capacity) || capacity < 1) {
       res.status(400).json({ message: "capacity must be a number greater than 0" });
+      return;
+    }
+
+    if (Number.isNaN(ticketPrice) || ticketPrice < 0) {
+      res.status(400).json({ message: "ticketPrice must be a number greater than or equal to 0" });
       return;
     }
 
@@ -346,6 +364,7 @@ async function startServer() {
       image: image || `https://picsum.photos/seed/${Date.now()}/800/600`,
       capacity,
       registeredCount: 0,
+      ticketPrice: Math.round(ticketPrice * 100) / 100,
       streamingProvider,
       streamingUrl,
     });
@@ -467,6 +486,84 @@ async function startServer() {
     await EventModel.findByIdAndUpdate(eventId, { registeredCount: baselineCount + 1 });
 
     res.status(201).json(mapRegistration(newRegistration.toObject() as RegistrationDocument));
+  });
+
+  app.post("/api/payments/initiate", async (req, res) => {
+    const payload = req.body as { uid?: string; eventId?: string };
+    const uid = payload.uid?.trim() ?? "";
+    const eventId = payload.eventId?.trim() ?? "";
+
+    if (!uid || !eventId) {
+      res.status(400).json({ message: "uid and eventId are required" });
+      return;
+    }
+
+    const event = await EventModel.findById(eventId).lean();
+    if (!event) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
+
+    const existingRegistration = await RegistrationModel.findOne({ uid, eventId }).lean();
+    if (existingRegistration) {
+      res.status(409).json({ message: "You are already registered for this event." });
+      return;
+    }
+
+    const currentCount = await RegistrationModel.countDocuments({ eventId });
+    const baselineCount = Math.max(currentCount, event.registeredCount);
+    if (baselineCount >= event.capacity) {
+      res.status(409).json({ message: "This event is full." });
+      return;
+    }
+
+    const ticketPrice =
+      typeof (event as unknown as { ticketPrice?: number }).ticketPrice === "number"
+        ? (event as unknown as { ticketPrice: number }).ticketPrice
+        : 0;
+
+    if (ticketPrice <= 0) {
+      res.json({
+        requiresPayment: false,
+        message: "This event is free. You can register without payment.",
+      });
+      return;
+    }
+
+    if (!UPI_PAYEE_VPA) {
+      res.status(500).json({
+        message:
+          "UPI payment is not configured. Set UPI_PAYEE_VPA in server environment variables.",
+      });
+      return;
+    }
+
+    const amount = Number(ticketPrice.toFixed(2));
+    const transactionRef = `EVT${Date.now()}${crypto.randomInt(100, 999)}`;
+    const transactionNote = `Eventify - ${event.title}`.slice(0, 80);
+    const upiParams = new URLSearchParams({
+      pa: UPI_PAYEE_VPA,
+      pn: UPI_PAYEE_NAME,
+      tr: transactionRef,
+      tn: transactionNote,
+      am: amount.toFixed(2),
+      cu: "INR",
+    });
+    const upiIntentUrl = `upi://pay?${upiParams.toString()}`;
+
+    res.json({
+      requiresPayment: true,
+      eventId: event._id,
+      eventTitle: event.title,
+      amount,
+      currency: "INR",
+      transactionRef,
+      upiPayeeName: UPI_PAYEE_NAME,
+      upiPayeeVpa: UPI_PAYEE_VPA,
+      upiIntentUrl,
+      qrPayload: upiIntentUrl,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
   });
 
   app.patch("/api/registrations/:id/attendance", async (req, res) => {

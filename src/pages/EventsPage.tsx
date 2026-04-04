@@ -39,6 +39,8 @@ export default function EventsPage() {
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.venue.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const formatInr = (amount: number) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(amount);
 
   return (
     <div className="min-h-screen bg-[#0F172A] pt-32 pb-20 px-6">
@@ -117,6 +119,10 @@ export default function EventsPage() {
                     <div className="flex items-center gap-3 text-slate-300 text-sm">
                       <Users size={16} className="text-teal-400" />
                       <span>{event.registeredCount} / {event.capacity} Registered</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-slate-300 text-sm">
+                      <Calendar size={16} className="text-pink-400" />
+                      <span>{event.ticketPrice > 0 ? formatInr(event.ticketPrice) : 'Free Entry'}</span>
                     </div>
                   </div>
 

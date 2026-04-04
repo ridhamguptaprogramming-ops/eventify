@@ -19,6 +19,7 @@ export interface Event {
   image: string;
   capacity: number;
   registeredCount: number;
+  ticketPrice: number;
   schedule?: { time: string; activity: string }[];
   speakers?: { name: string; role: string; image: string }[];
   streamingProvider?: StreamingProvider;
@@ -32,8 +33,24 @@ export interface CreateEventInput {
   venue: string;
   image?: string;
   capacity: number;
+  ticketPrice?: number;
   streamingProvider?: StreamingProvider;
   streamingUrl?: string;
+}
+
+export interface PaymentIntent {
+  requiresPayment: boolean;
+  message?: string;
+  eventId?: string;
+  eventTitle?: string;
+  amount?: number;
+  currency?: "INR";
+  transactionRef?: string;
+  upiPayeeName?: string;
+  upiPayeeVpa?: string;
+  upiIntentUrl?: string;
+  qrPayload?: string;
+  expiresAt?: string;
 }
 
 export interface Registration {
@@ -127,6 +144,13 @@ export function createRegistration(payload: {
   userName: string;
 }) {
   return apiRequest<Registration>("/api/registrations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function initiatePayment(payload: { uid: string; eventId: string }) {
+  return apiRequest<PaymentIntent>("/api/payments/initiate", {
     method: "POST",
     body: JSON.stringify(payload),
   });

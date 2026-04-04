@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Users, ArrowLeft, CheckCircle, Clock, Shield, Share2 } from 'lucide-react';
+import { Calendar, MapPin, Users, ArrowLeft, CheckCircle, Clock, Shield, Share2, X, ExternalLink } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { Event, checkRegistration, createRegistration, getEventById } from '../lib/api';
+import { Event, checkRegistration, createRegistration, getEventById, initiatePayment, PaymentIntent } from '../lib/api';
 
 export default function EventDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -12,8 +13,17 @@ export default function EventDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [generatingPayment, setGeneratingPayment] = useState(false);
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | null>(null);
+  const [showPaymentQr, setShowPaymentQr] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const formatInr = (amount: number) =>
+    new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 2,
+    }).format(amount);
 
   useEffect(() => {
     if (!id) return;
@@ -102,6 +112,56 @@ export default function EventDetailsPage() {
     } finally {
       setRegistering(false);
     }
+  };
+
+  const handleSecurePayment = async () => {
+    if (!user) {
+      toast.error('Please login to continue with secure payment');
+      return;
+    }
+
+    if (!id || !event) return;
+
+    if (isRegistered) {
+      toast.success('You are already registered. Your ticket is secured in dashboard.');
+      return;
+    }
+
+    if (event.ticketPrice <= 0) {
+      toast.info('This event is free. Proceeding with direct registration.');
+      void handleRegister();
+      return;
+    }
+
+    setGeneratingPayment(true);
+    try {
+      const intent = await initiatePayment({ uid: user.uid, eventId: id });
+      if (!intent.requiresPayment) {
+        toast.info(intent.message ?? 'This event does not require payment.');
+        void handleRegister();
+        return;
+      }
+
+      if (!intent.qrPayload || !intent.upiIntentUrl) {
+        toast.error('Unable to generate payment QR right now.');
+        return;
+      }
+
+      setPaymentIntent(intent);
+      setShowPaymentQr(true);
+      toast.success('Payment QR generated. Scan with Google Pay or Paytm.');
+    } catch (error) {
+      console.error('Failed to initiate secure payment:', error);
+      const message = error instanceof Error ? error.message : 'Failed to generate payment QR.';
+      toast.error(message);
+    } finally {
+      setGeneratingPayment(false);
+    }
+  };
+
+  const handleCompleteRegistration = () => {
+    setShowPaymentQr(false);
+    void handleRegister();
   };
 
   if (loading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">Loading...</div>;
@@ -223,6 +283,10 @@ export default function EventDetailsPage() {
                     <span className="text-slate-300">Available Slots</span>
                     <span className="text-white font-bold">{event.capacity - event.registeredCount} / {event.capacity}</span>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300">Ticket Price</span>
+                    <span className="text-white font-bold">{event.ticketPrice > 0 ? formatInr(event.ticketPrice) : 'Free'}</span>
+                  </div>
                   <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-indigo-500 to-teal-500" 
@@ -245,11 +309,17 @@ export default function EventDetailsPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={handleRegister}
-                    disabled={registering}
+                    onClick={event.ticketPrice > 0 ? () => void handleSecurePayment() : handleRegister}
+                    disabled={registering || generatingPayment}
                     className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2"
                   >
-                    {registering ? 'Processing...' : 'Register Now'}
+                    {event.ticketPrice > 0
+                      ? generatingPayment
+                        ? 'Generating QR...'
+                        : `Pay ${formatInr(event.ticketPrice)} & Register`
+                      : registering
+                        ? 'Processing...'
+                        : 'Register Now'}
                   </button>
                 )}
 
@@ -257,8 +327,12 @@ export default function EventDetailsPage() {
                   <button className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium">
                     <Share2 size={16} /> Share Event
                   </button>
-                  <button className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium">
-                    <Shield size={16} /> Secure Payment
+                  <button
+                    onClick={() => void handleSecurePayment()}
+                    disabled={registering || generatingPayment || event.ticketPrice <= 0}
+                    className="flex items-center gap-2 text-slate-400 hover:text-white disabled:text-slate-500/70 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                  >
+                    <Shield size={16} /> {event.ticketPrice <= 0 ? 'No Payment Needed' : generatingPayment ? 'Generating...' : 'Secure Payment'}
                   </button>
                 </div>
               </motion.div>
@@ -274,6 +348,58 @@ export default function EventDetailsPage() {
           </div>
         </div>
       </div>
+
+      {showPaymentQr && paymentIntent?.qrPayload && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#0b1226] border border-white/10 p-6 shadow-2xl shadow-black/50">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">Scan To Pay</h3>
+                <p className="text-slate-400 text-sm">{event.title}</p>
+              </div>
+              <button
+                onClick={() => setShowPaymentQr(false)}
+                className="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Close payment QR"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3">
+              <p className="text-indigo-100 text-xs uppercase tracking-widest font-bold mb-1">Amount</p>
+              <p className="text-white text-2xl font-black">{formatInr(paymentIntent.amount ?? event.ticketPrice)}</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 flex items-center justify-center mb-4">
+              <QRCodeSVG value={paymentIntent.qrPayload} size={240} level="H" />
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-400 mb-5">
+              <p>Payee: <span className="text-slate-200">{paymentIntent.upiPayeeName} ({paymentIntent.upiPayeeVpa})</span></p>
+              <p>Txn Ref: <span className="text-slate-200">{paymentIntent.transactionRef}</span></p>
+              <p>Use Google Pay, Paytm, PhonePe, or any UPI app to scan this QR.</p>
+            </div>
+
+            {paymentIntent.upiIntentUrl && (
+              <a
+                href={paymentIntent.upiIntentUrl}
+                className="w-full mb-3 inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 text-slate-100 hover:bg-white/10 transition-colors font-semibold"
+              >
+                Open UPI App <ExternalLink size={16} />
+              </a>
+            )}
+
+            <button
+              onClick={handleCompleteRegistration}
+              disabled={registering}
+              className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white font-bold transition-colors"
+            >
+              {registering ? 'Completing...' : "I've Paid, Complete Registration"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

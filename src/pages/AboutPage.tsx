@@ -21,81 +21,76 @@ const highlights = [
   },
 ];
 
-const teamMembers = [
-  {
-    name: 'Ridham Gupta',
-    role: 'Technical Lead',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Ridham — Technical ⚙️ is responsible for building and managing the community technical infrastructure, setting up organized channels, and integrating essential bots to ensure smooth communication, moderation, and an engaging user experience.',
-    linkedin: 'https://www.linkedin.com/in/ridham-gupta-09056a386/',
-    instagram: 'https://www.instagram.com/i.ridhamgupta/',
-  },
-  {
-    name: 'Pranav Sharma ',
-    role: 'Event Manager + Networking Lead',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Firebase integration, API routes, and event CRUD logic with security rules.',
-    linkedin: 'https://www.linkedin.com/in/hackwithpranav/',
-    instagram: 'https://www.instagram.com/01pranav_sharma?igsh=MXczejU4bmUyb3Nqcg==',
-  },
-  {
-    name: 'Arman Khan',
-    role: 'SMM + Sponsor Reachout Lead',
-    image: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Test plans, flow validation, bug triage, and release quality ownership.',
-    linkedin: 'https://linkedin.com/in/meera-quality',
-    instagram: 'https://instagram.com/meera.qa',
-  },
-  {
-    name: 'Ayan Khan',
-    role: 'SMM + Sponsor Reachout Lead',
-    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Design language, accessibility, and component library governance for consistent UI.',
-    linkedin: 'https://linkedin.com/in/nina-design',
-    instagram: 'https://instagram.com/nina.designs',
-  },
-  {
-    name: 'Ishika',
-    role: 'SMM + Networking Lead',
-    image: 'https://images.unsplash.com/photo-1488747279002-c8523379faaa?auto=format&fit=crop&w=500&q=80',
-    contributions: 'CI/CD pipelines, infrastructure automation, and reliability engineering for scaling.',
-    linkedin: 'https://linkedin.com/in/karan-ops',
-    instagram: 'https://instagram.com/karan.devops',
-  },
-  {
-    name: 'Anupam Singh',
-    role: 'Networking + Event Manager',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Onboarding, support workflows, and feedback loops for product-market fit.',
-    linkedin: 'https://linkedin.com/in/samira-cs',
-    instagram: 'https://instagram.com/samira.success',
-  },
-  {
-    name: 'Prince Yadav',
-    role: 'SMM + Member Management',
-    image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Event analytics, dashboard metrics, and KPI reporting for data-driven decisions.',
-    linkedin: 'https://linkedin.com/in/ishan-data',
-    instagram: 'https://instagram.com/ishan.data',
+type TeamMember = {
+  github?: string;
+  name: string;
+  role: string;
+  image: string;
+  contributions: string;
+  linkedin: string;
+  instagram: string;
+};
 
+const teamMembers: TeamMember[] = [
+  {
+    name: 'Alice Johnson',
+    role: 'Co-Founder & CEO',
+    image: '/team/1.jpg',
+    contributions: 'Alice leads the vision and strategy for Eventify, ensuring we build a product that truly serves event organizers and attendees.',
+    linkedin: 'https://www.linkedin.com/in/alicejohnson',
+    instagram: 'https://www.instagram.com/alicejohnson',
   },
   {
-    name: 'Khushal Agarwal',
-    role: 'Technical + Guest/Speaker Outreach',
-    image: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=500&q=80',
-    contributions: 'Full-Stack Developer, SDE Intern at Bluestock Fintech, and Founder of SakaarWeb, I build scalable GenAI products like my JEE Rank Predictor and Career Compass, a next-gen AI-powered job portal. Dedicated to digital transformation in Tier-2 and Tier-3 cities, I leverage my background with IIT entrepreneurship fests and PWSOS to bridge complex engineering with seamless UX. I’m always eager to collaborate on impactful tech—let’s build together!',
-    linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353?utm_source=share_via&utm_content=profile&utm_medium=member_android',
-    instagram: 'https://www.instagram.com/k_garg_4/',
+    name: 'Bob Smith',
+    role: 'Co-Founder & CTO',
+    image: '/team/2.jpg',
+    contributions: 'Bob oversees all technical aspects of Eventify, from architecture to implementation, ensuring a reliable and scalable platform.',
+    linkedin: 'https://www.linkedin.com/in/bobsmith',
+    github: 'https://github.com/bobsmith',
+    instagram: ''
   },
-];
-
+  {
+    name: 'Charlie Brown',
+    role: 'CTO',
+    image: '/team/charlie.jpg',
+    contributions: 'Charlie is responsible for the technical vision and execution of Eventify, leading our engineering team to build a robust and innovative platform.',
+    linkedin: 'https://www.linkedin.com/in/charliebrown',
+    github: 'https://github.com/charliebrown',
+    instagram: ''
+  },
+  {
+    name: 'Dana Lee',
+    role: 'Lead Designer',
+    image: '/team/dana.jpg',
+    contributions: 'Dana crafts the user experience and visual design of Eventify, ensuring our platform is intuitive and delightful to use.',
+    linkedin: 'https://www.linkedin.com/in/danalee',
+    instagram: 'https://www.instagram.com/danalee',
+  },
+  {
+    name: 'Evan Davis',
+    role: 'Head of Marketing',
+    image: '/team/evan.jpg',
+    contributions: 'Evan leads our marketing efforts, sharing the story of Eventify and connecting with event organizers around the world.',
+    linkedin: 'https://www.linkedin.com/in/evandavis',
+    instagram: 'https://www.instagram.com/evandavis',
+  },
+  {
+    name: 'Fiona Green',
+    role: 'Customer Success Manager',
+    image: '/team/fiona.jpg',
+    contributions: 'Fiona works closely with our customers to ensure they get the most out of Eventify, providing support and gathering feedback to continuously improve our platform.',
+    linkedin: 'https://www.linkedin.com/in/fionagreen',
+    instagram: 'https://www.instagram.com/fionagreen',
+  },
+];  
+  
 export default function AboutPage() {
-  const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
   const closeModal = () => setSelectedMember(null);
 
   useEffect(() => {
-    const handleEscape = (e) => {
+    const handleEscape = (e: { key: string; }) => {
       if (e.key === 'Escape') closeModal();
     };
     
