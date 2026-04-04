@@ -93,8 +93,8 @@ export default function Navbar() {
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share({
-          title: 'Eventify',
-          text: 'Check out Eventify',
+          title: 'Esoteric Hub',
+          text: 'Check out Esoteric Hub',
           url: shareUrl,
         });
         return;
@@ -123,7 +123,7 @@ export default function Navbar() {
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform">
             <Calendar className="text-white w-6 h-6" />
           </div>
-          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-teal-400">Eventify</span>
+          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-teal-400">Esoteric Hub</span>
         </Link>
 
         {/* Desktop Menu */}
@@ -131,10 +131,7 @@ export default function Navbar() {
           <NavLink to="/" className={getNavLinkClasses}>Home</NavLink>
           <NavLink to="/events" className={getNavLinkClasses}>Events</NavLink>
           <NavLink to="/about" className={getNavLinkClasses}>About</NavLink>
-          <NavLink to="/help" className={getNavLinkClasses}>Help</NavLink>
-          <button onClick={handleShareApp} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors">
-            <Share2 size={16} /> Share App
-          </button>
+  
           {user ? (
             <>
               <NavLink to="/dashboard" className={getNavLinkClasses}>Dashboard</NavLink>
@@ -189,7 +186,7 @@ export default function Navbar() {
             <NavLink to="/" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Home</NavLink>
             <NavLink to="/events" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Events</NavLink>
             <NavLink to="/about" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">About</NavLink>
-            <NavLink to="/help" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Help</NavLink>
+            <NavLink to="/help" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Contact Support</NavLink>
             <button onClick={handleShareApp} className="flex items-center gap-2 text-lg text-white/80 py-2">
               <Share2 size={18} /> Share App
             </button>

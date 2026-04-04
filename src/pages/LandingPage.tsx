@@ -1,12 +1,25 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import gsap from 'gsap';
-import { ArrowRight, Calendar, Users, Shield, Zap, CheckCircle } from 'lucide-react';
+import { ArrowRight, Calendar, History, MapPin, Shield, Sparkles, Users, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Event, getEvents } from '../lib/api';
+
+function formatEventDate(date: string) {
+  return new Date(date).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const shapesRef = useRef<HTMLDivElement>(null);
+  const [featuredEvent, setFeaturedEvent] = useState<Event | null>(null);
+  const [activeEvents, setActiveEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   useEffect(() => {
     if (heroRef.current) {
@@ -29,6 +42,41 @@ export default function LandingPage() {
         stagger: { amount: 2 }
       });
     }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadHomeEventData = async () => {
+      try {
+        const eventsData = await getEvents();
+        if (!isMounted) return;
+
+        const now = Date.now();
+        const sortedByDateAsc = [...eventsData].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        const upcomingEvents = sortedByDateAsc.filter((event) => new Date(event.date).getTime() >= now);
+
+        setFeaturedEvent(upcomingEvents[0] ?? null);
+        setActiveEvents(upcomingEvents);
+      } catch (error) {
+        console.error('Failed to load home page events:', error);
+        if (isMounted) {
+          toast.error('Unable to load active events right now.');
+        }
+      } finally {
+        if (isMounted) {
+          setEventsLoading(false);
+        }
+      }
+    };
+
+    void loadHomeEventData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -86,6 +134,117 @@ export default function LandingPage() {
               <p className="text-slate-400 leading-relaxed">{feature.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="relative px-6 pb-12">
+        <div className="max-w-7xl mx-auto rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/10 text-xs uppercase tracking-[0.22em] font-bold text-indigo-300">
+            Active Events
+          </div>
+          {eventsLoading ? (
+            <div className="h-16 bg-white/5 animate-pulse" />
+          ) : activeEvents.length > 0 ? (
+            <div className="relative overflow-hidden">
+              <div className="marquee-track flex w-max items-center gap-4 py-4 px-4">
+                {[...activeEvents, ...activeEvents].map((event, index) => (
+                  <Link
+                    key={`${event.id}-${index}`}
+                    to={`/events/${event.id}`}
+                    className="shrink-0 whitespace-nowrap rounded-2xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-sm text-slate-100 hover:bg-indigo-500/20 transition-colors"
+                  >
+                    <span className="font-semibold">{event.title}</span>
+                    <span className="mx-2 text-indigo-300">|</span>
+                    <span className="text-slate-300">{formatEventDate(event.date)}</span>
+                    <span className="mx-2 text-indigo-300">|</span>
+                    <span className="text-slate-300">{event.venue}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="px-6 py-5 text-slate-300 text-sm">No active events available right now.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="relative px-6 pb-20">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <div className="lg:col-span-2 p-8 rounded-3xl bg-gradient-to-br from-indigo-600/15 to-teal-500/10 border border-white/10 backdrop-blur-sm">
+            <p className="text-xs uppercase tracking-[0.2em] text-indigo-300 mb-3 font-bold flex items-center gap-2">
+              <Sparkles size={14} /> Next Active Event
+            </p>
+            {eventsLoading ? (
+              <div className="space-y-3">
+                <div className="h-6 w-2/3 rounded bg-white/10 animate-pulse" />
+                <div className="h-4 w-1/2 rounded bg-white/10 animate-pulse" />
+                <div className="h-20 rounded bg-white/10 animate-pulse" />
+              </div>
+            ) : featuredEvent ? (
+              <>
+                <h3 className="text-2xl font-black text-white mb-3">{featuredEvent.title}</h3>
+                <div className="space-y-2 text-sm text-slate-300 mb-5">
+                  <p className="flex items-center gap-2">
+                    <Calendar size={15} className="text-indigo-400" />
+                    {formatEventDate(featuredEvent.date)}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <MapPin size={15} className="text-teal-400" />
+                    {featuredEvent.venue}
+                  </p>
+                </div>
+                <p className="text-slate-300 leading-relaxed mb-6 line-clamp-4">{featuredEvent.description}</p>
+                <Link
+                  to={`/events/${featuredEvent.id}`}
+                  className="inline-flex items-center gap-2 text-indigo-300 font-semibold hover:text-white transition-colors"
+                >
+                  Open Event <ArrowRight size={16} />
+                </Link>
+              </>
+            ) : (
+              <p className="text-slate-300">No active events are available yet. Create one to see it highlighted here.</p>
+            )}
+          </div>
+
+          <div className="lg:col-span-3 p-8 rounded-3xl bg-white/5 border border-white/10">
+            <h2 className="text-2xl font-black text-white mb-2 flex items-center gap-3">
+              <History className="text-pink-400" size={24} />
+              Active Event Queue
+            </h2>
+            <p className="text-slate-400 mb-6">Currently active events listed in upcoming order.</p>
+
+            {eventsLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-16 rounded-2xl bg-white/5 animate-pulse" />
+                ))}
+              </div>
+            ) : activeEvents.length > 0 ? (
+              <div className="space-y-4">
+                {activeEvents.slice(0, 3).map((event, index) => (
+                  <div
+                    key={event.id}
+                    className="flex items-start gap-4 p-4 rounded-2xl bg-[#111a32] border border-white/5 hover:border-indigo-400/30 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-sm font-bold">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-bold">{event.title}</p>
+                      <p className="text-slate-400 text-sm mt-1">{formatEventDate(event.date)} - {event.venue}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#111a32] border border-white/5">
+                <p className="text-white font-semibold mb-1">No active events yet</p>
+                <p className="text-slate-400 text-sm">
+                  Active events will appear here automatically once they are scheduled.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

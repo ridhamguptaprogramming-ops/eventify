@@ -17,7 +17,7 @@ const highlights = [
   {
     icon: ShieldCheck,
     title: 'Reliable & Secure',
-    description: 'Eventify is designed around dependable access control and secure event operations.',
+    description: 'Esoteric Hub is designed around dependable access control and secure event operations.',
   },
 ];
 
@@ -33,52 +33,58 @@ type TeamMember = {
 
 const teamMembers: TeamMember[] = [
   {
-    name: 'Alice Johnson',
+    name: 'Ridham gupta',
     role: 'Co-Founder & CEO',
-    image: '/team/1.jpg',
-    contributions: 'Alice leads the vision and strategy for Eventify, ensuring we build a product that truly serves event organizers and attendees.',
-    linkedin: 'https://www.linkedin.com/in/alicejohnson',
-    instagram: 'https://www.instagram.com/alicejohnson',
+    image: 'image/2.png',
+    contributions: 'Alice leads the vision and strategy for Esoteric Hub, ensuring we build a product that truly serves event organizers and attendees.',
+    linkedin: 'https://www.linkedin.com/in/ridham-gupta-09056a386/',
+    instagram: 'https://www.instagram.com/i.ridhamgupta/',
   },
   {
-    name: 'Bob Smith',
+    name: 'Pranav Sharma',
     role: 'Co-Founder & CTO',
-    image: '/team/2.jpg',
-    contributions: 'Bob oversees all technical aspects of Eventify, from architecture to implementation, ensuring a reliable and scalable platform.',
-    linkedin: 'https://www.linkedin.com/in/bobsmith',
-    github: 'https://github.com/bobsmith',
-    instagram: ''
+    image: 'image/1.png',
+    contributions: 'Bob oversees all technical aspects of Esoteric Hub, from architecture to implementation, ensuring a reliable and scalable platform.',
+    linkedin: 'https://www.linkedin.com/in/hackwithpranav/',
+    instagram: 'https://www.instagram.com/01pranav_sharma?igsh=MXczejU4bmUyb3Nqcg%3D%3D'
   },
   {
-    name: 'Charlie Brown',
+    name: 'Arman Khan',
     role: 'CTO',
-    image: '/team/charlie.jpg',
-    contributions: 'Charlie is responsible for the technical vision and execution of Eventify, leading our engineering team to build a robust and innovative platform.',
-    linkedin: 'https://www.linkedin.com/in/charliebrown',
-    github: 'https://github.com/charliebrown',
+    image: 'image/3.png',
+    contributions: 'Charlie is responsible for the technical vision and execution of Esoteric Hub, leading our engineering team to build a robust and innovative platform.',
+    linkedin: 'https://www.linkedin.com/in/arman-khan-778874350/',
     instagram: ''
   },
   {
-    name: 'Dana Lee',
+    name: 'Mohammad Ayan khan',
     role: 'Lead Designer',
-    image: '/team/dana.jpg',
-    contributions: 'Dana crafts the user experience and visual design of Eventify, ensuring our platform is intuitive and delightful to use.',
-    linkedin: 'https://www.linkedin.com/in/danalee',
-    instagram: 'https://www.instagram.com/danalee',
+    image: 'image/4.png',
+    contributions: 'Dana crafts the user experience and visual design of Esoteric Hub, ensuring our platform is intuitive and delightful to use.',
+    linkedin: 'https://www.linkedin.com/in/mohammad-ayan-khan-40a164333/',
+    instagram: 'https://www.instagram.com/ayan_verse_diaries?igsh=MTlsMThsdWMxa3ZuZw%3D%3D',
   },
   {
-    name: 'Evan Davis',
+    name: 'KHUSHAL AGARWAL',
     role: 'Head of Marketing',
-    image: '/team/evan.jpg',
-    contributions: 'Evan leads our marketing efforts, sharing the story of Eventify and connecting with event organizers around the world.',
-    linkedin: 'https://www.linkedin.com/in/evandavis',
-    instagram: 'https://www.instagram.com/evandavis',
+    image: 'image/5.png',
+    contributions: 'Evan leads our marketing efforts, sharing the story of Esoteric Hub and connecting with event organizers around the world.',
+    linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
+    instagram: 'https://www.instagram.com/k_garg_4/',
   },
   {
     name: 'Fiona Green',
     role: 'Customer Success Manager',
     image: '/team/fiona.jpg',
-    contributions: 'Fiona works closely with our customers to ensure they get the most out of Eventify, providing support and gathering feedback to continuously improve our platform.',
+    contributions: 'Fiona works closely with our customers to ensure they get the most out of Esoteric Hub, providing support and gathering feedback to continuously improve our platform.',
+    linkedin: 'https://www.linkedin.com/in/fionagreen',
+    instagram: 'https://www.instagram.com/fionagreen',
+  },
+  {
+    name: 'Fiona Green',
+    role: 'Customer Success Manager',
+    image: '/team/fiona.jpg',
+    contributions: 'Fiona works closely with our customers to ensure they get the most out of Esoteric Hub, providing support and gathering feedback to continuously improve our platform.',
     linkedin: 'https://www.linkedin.com/in/fionagreen',
     instagram: 'https://www.instagram.com/fionagreen',
   },
@@ -86,8 +92,20 @@ const teamMembers: TeamMember[] = [
   
 export default function AboutPage() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const closeModal = () => setSelectedMember(null);
+  const markImageFailed = (memberName: string) => {
+    setFailedImages((prev) => ({ ...prev, [memberName]: true }));
+  };
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('');
+  const shouldRenderImage = (member: TeamMember) => Boolean(member.image) && !failedImages[member.name];
 
   useEffect(() => {
     const handleEscape = (e: { key: string; }) => {
@@ -105,7 +123,7 @@ export default function AboutPage() {
       <div className="max-w-7xl mx-auto">
         <section className="mb-16 md:mb-24">
           <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-widest text-indigo-300">
-            About Eventify
+            About Esoteric Hub
           </span>
           <h1 className="mt-6 text-5xl md:text-7xl font-black leading-[0.95]">
             Built To Run
@@ -114,7 +132,7 @@ export default function AboutPage() {
             </span>
           </h1>
           <p className="mt-8 max-w-3xl text-lg text-slate-300 leading-relaxed">
-            Eventify helps teams plan events with clarity, engage audiences in real time, and make decisions with confidence. Our focus is simple: less chaos, better outcomes, and a platform people enjoy using.
+            Esoteric Hub helps teams plan events with clarity, engage audiences in real time, and make decisions with confidence. Our focus is simple: less chaos, better outcomes, and a platform people enjoy using.
           </p>
         </section>
 
@@ -140,7 +158,7 @@ export default function AboutPage() {
           })}
         </section>
 
-        <section className="mb-16 md:mb-24">
+        <section id="team" className="mb-16 md:mb-24">
           <h2 className="text-3xl font-black text-white mb-6">Meet the Team</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {teamMembers.map((member) => (
@@ -149,11 +167,19 @@ export default function AboutPage() {
                 onClick={() => setSelectedMember(member)}
                 className="group rounded-3xl border border-white/10 bg-white/5 p-5 text-left transition hover:border-indigo-400/50 hover:bg-indigo-400/15"
               >
-                <img
-                  src={member.image}
-                  alt={`${member.name} photo`}
-                  className="h-32 w-32 rounded-full object-cover"
-                />
+                {shouldRenderImage(member) ? (
+                  <img
+                    src={member.image}
+                    alt={`${member.name} photo`}
+                    className="h-32 w-32 rounded-full object-cover"
+                    loading="lazy"
+                    onError={() => markImageFailed(member.name)}
+                  />
+                ) : (
+                  <div className="h-32 w-32 rounded-full bg-gradient-to-br from-indigo-500/80 to-teal-500/70 flex items-center justify-center text-white text-2xl font-black">
+                    {getInitials(member.name)}
+                  </div>
+                )}
                 <h3 className="mt-4 text-xl font-bold text-white">{member.name}</h3>
                 <p className="text-sm text-slate-300">{member.role}</p>
                 <p className="mt-2 text-slate-300 text-sm line-clamp-3 leading-relaxed">{member.contributions}</p>
@@ -178,9 +204,23 @@ export default function AboutPage() {
               className="max-w-lg w-full rounded-3xl border border-white/15 bg-slate-900 p-6 shadow-2xl"
             >
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="flex items-center gap-4">
+                  {shouldRenderImage(selectedMember) ? (
+                    <img
+                      src={selectedMember.image}
+                      alt={`${selectedMember.name} profile`}
+                      className="h-16 w-16 rounded-full object-cover"
+                      onError={() => markImageFailed(selectedMember.name)}
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500/80 to-teal-500/70 flex items-center justify-center text-white text-lg font-black">
+                      {getInitials(selectedMember.name)}
+                    </div>
+                  )}
+                  <div>
                   <h3 id="member-modal-title" className="text-2xl font-black text-white">{selectedMember.name}</h3>
                   <p className="text-sm text-slate-300">{selectedMember.role}</p>
+                  </div>
                 </div>
                 <button
                   onClick={closeModal}
@@ -237,7 +277,7 @@ export default function AboutPage() {
         )}
 
         <section className="rounded-3xl border border-white/10 bg-gradient-to-r from-indigo-600/20 via-slate-900/30 to-emerald-500/20 p-8 md:p-12">
-          <h2 className="text-3xl md:text-4xl font-black text-white">Ready to experience Eventify?</h2>
+          <h2 className="text-3xl md:text-4xl font-black text-white">Ready to experience Esoteric Hub?</h2>
           <p className="mt-4 max-w-2xl text-slate-200 leading-relaxed">
             Browse live events, explore details, and start building better event experiences for your community.
           </p>

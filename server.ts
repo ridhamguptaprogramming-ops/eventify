@@ -289,11 +289,41 @@ async function seedDefaultEvents() {
   }
 }
 
+async function purgeExpiredEvents() {
+  const nowIso = new Date().toISOString();
+  const expiredEventIds = (await EventModel.find({ date: { $lt: nowIso } }, { _id: 1 }).lean()).map(
+    (event) => (event as { _id: string })._id
+  );
+
+  if (expiredEventIds.length === 0) {
+    return { deletedEvents: 0, deletedRegistrations: 0 };
+  }
+
+  const [deletedEvents, deletedRegistrations] = await Promise.all([
+    EventModel.deleteMany({ _id: { $in: expiredEventIds } }),
+    RegistrationModel.deleteMany({ eventId: { $in: expiredEventIds } }),
+  ]);
+
+  return {
+    deletedEvents: deletedEvents.deletedCount ?? 0,
+    deletedRegistrations: deletedRegistrations.deletedCount ?? 0,
+  };
+}
+
 async function startServer() {
   await connectToMongoDB();
   await seedDefaultEvents();
+  await purgeExpiredEvents();
 
   const app = express();
+  const cleanupIntervalMs = Number(process.env.EXPIRED_EVENT_CLEANUP_MS ?? 60_000);
+  const safeCleanupIntervalMs = Number.isFinite(cleanupIntervalMs) && cleanupIntervalMs > 0 ? cleanupIntervalMs : 60_000;
+  const cleanupTimer = setInterval(() => {
+    void purgeExpiredEvents().catch((error) => {
+      console.error("Failed to purge expired events:", error);
+    });
+  }, safeCleanupIntervalMs);
+  cleanupTimer.unref();
 
   app.use(express.json({ limit: "8mb" }));
   app.use(cors());
@@ -306,6 +336,7 @@ async function startServer() {
   });
 
   app.get("/api/events", async (_req, res) => {
+    await purgeExpiredEvents();
     const events = await EventModel.find({}).sort({ date: 1 }).lean();
     res.json(events.map((event) => mapEvent(event as EventDocument)));
   });
@@ -373,6 +404,7 @@ async function startServer() {
   });
 
   app.get("/api/events/:id", async (req, res) => {
+    await purgeExpiredEvents();
     const event = await EventModel.findById(req.params.id).lean();
     if (!event) {
       res.status(404).json({ message: "Event not found" });
@@ -442,6 +474,7 @@ async function startServer() {
   });
 
   app.post("/api/registrations", async (req, res) => {
+    await purgeExpiredEvents();
     const payload = req.body as Partial<RegistrationDocument>;
     const { uid, eventId, userEmail, userName } = payload;
 
@@ -489,6 +522,7 @@ async function startServer() {
   });
 
   app.post("/api/payments/initiate", async (req, res) => {
+    await purgeExpiredEvents();
     const payload = req.body as { uid?: string; eventId?: string };
     const uid = payload.uid?.trim() ?? "";
     const eventId = payload.eventId?.trim() ?? "";
@@ -634,6 +668,7 @@ async function startServer() {
   });
 
   app.get("/api/admin/overview", async (_req, res) => {
+    await purgeExpiredEvents();
     const [registrations, events] = await Promise.all([
       RegistrationModel.find({}).sort({ registeredAt: -1 }).lean(),
       EventModel.find({}).sort({ date: 1 }).lean(),
