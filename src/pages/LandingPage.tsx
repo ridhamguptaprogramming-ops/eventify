@@ -203,7 +203,7 @@ export default function LandingPage() {
             </div>
 
             <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
-              Trusted by 10,000+ event organizers
+              Trusted by 00 event organizers
             </p>
           </motion.div>
 
@@ -226,15 +226,15 @@ export default function LandingPage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
                   <p className="text-xs text-slate-400">Attendees</p>
-                  <p className="mt-1 text-xl font-black text-white">{(totalAttendees || 12500).toLocaleString()}</p>
+                  <p className="mt-1 text-xl font-black text-white">00</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
                   <p className="text-xs text-slate-400">Check-ins</p>
-                  <p className="mt-1 text-xl font-black text-white">{(totalCheckIns || 9830).toLocaleString()}</p>
+                  <p className="mt-1 text-xl font-black text-white">00</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
                   <p className="text-xs text-slate-400">Engagement</p>
-                  <p className="mt-1 text-xl font-black text-white">{engagementRate}%</p>
+                  <p className="mt-1 text-xl font-black text-white">00%</p>
                 </div>
               </div>
 
@@ -244,7 +244,7 @@ export default function LandingPage() {
                   <span>This Week</span>
                 </div>
                 <div className="flex h-24 items-end gap-2">
-                  {[42, 58, 46, 74, 69, 82, 91].map((value) => (
+                  {[0, 0, 0, 0, 0, 0, 0].map((value) => (
                     <div key={value} className="flex-1 rounded-t-lg bg-gradient-to-t from-indigo-500 to-cyan-400/90" style={{ height: `${value}%` }} />
                   ))}
                 </div>
@@ -407,9 +407,9 @@ export default function LandingPage() {
       >
         <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-3">
           {[
-            { label: 'Events Hosted', value: '10K+' },
-            { label: 'Attendees', value: '1M+' },
-            { label: 'Platform Uptime', value: '99.9%' },
+            { label: 'Events Hosted', value: '00' },
+            { label: 'Attendees', value: '00' },
+            { label: 'Platform Uptime', value: '00' },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -451,21 +451,21 @@ export default function LandingPage() {
             <div className="grid gap-4 md:grid-cols-4">
               <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
                 <p className="text-xs text-slate-400">Attendees</p>
-                <p className="mt-1 text-2xl font-black text-white">{(totalAttendees || 120340).toLocaleString()}</p>
+                <p className="mt-1 text-2xl font-black text-white">00</p>
               </div>
               <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
                 <p className="text-xs text-slate-400">Check-ins</p>
-                <p className="mt-1 text-2xl font-black text-white">{(totalCheckIns || 98740).toLocaleString()}</p>
+                <p className="mt-1 text-2xl font-black text-white">00</p>
               </div>
               <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
                 <p className="text-xs text-slate-400">Engagement</p>
-                <p className="mt-1 text-2xl font-black text-white">{engagementRate}%</p>
+                <p className="mt-1 text-2xl font-black text-white">00%</p>
               </div>
               <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
                 <p className="text-xs text-slate-400">Growth</p>
                 <p className="mt-1 inline-flex items-center gap-1 text-2xl font-black text-emerald-300">
                   <TrendingUp size={18} />
-                  +18%
+                  00%
                 </p>
               </div>
             </div>
@@ -477,7 +477,7 @@ export default function LandingPage() {
                   <BarChart3 size={17} className="text-indigo-200" />
                 </div>
                 <div className="flex h-36 items-end gap-3">
-                  {[54, 72, 61, 83, 76, 88, 92].map((value) => (
+                  {[0, 0, 0, 0, 0, 0, 0].map((value) => (
                     <div key={value} className="flex-1 rounded-t-xl bg-gradient-to-t from-indigo-500 to-cyan-400" style={{ height: `${value}%` }} />
                   ))}
                 </div>

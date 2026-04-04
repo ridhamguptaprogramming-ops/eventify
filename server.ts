@@ -276,6 +276,37 @@ async function sendVerificationEmail(email: string, displayName: string, qrValue
   return info;
 }
 
+async function sendVerificationReminderEmail(email: string, displayName: string, qrValue: string) {
+  const transporter = await createMailTransporter();
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrValue)}`;
+
+  const subject = "Eventify verification reminder";
+  const text = `Hello ${displayName || "user"},\n\nYour account is still pending verification.\n\nVerification code: ${qrValue}\n\nPlease keep this code ready and contact your event administrator for approval.\n\nThank you!`;
+  const html = `
+    <p>Hello ${displayName || "user"},</p>
+    <p>Your account is currently <strong>pending verification</strong>.</p>
+    <p>Verification code: <code>${qrValue}</code></p>
+    <p><img src="${qrImageUrl}" alt="Verification QR code" style="max-width: 300px;"/></p>
+    <p>Please keep this code ready and contact your event administrator for approval.</p>
+    <p>Thanks,<br/>Eventify Team</p>
+  `;
+
+  const info = await transporter.sendMail({
+    from: MAIL_FROM,
+    to: email,
+    subject,
+    text,
+    html,
+  });
+
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.info("Verification reminder email preview URL: ", previewUrl);
+  }
+
+  return info;
+}
+
 async function connectToMongoDB() {
   await mongoose.connect(MONGODB_URI);
   console.log(`Connected to MongoDB at ${MONGODB_URI}`);
@@ -414,6 +445,93 @@ async function startServer() {
     res.json(mapEvent(event as EventDocument));
   });
 
+  app.put("/api/events/:id", async (req, res) => {
+    const payload = req.body as Partial<EventDocument>;
+    const existing = await EventModel.findById(req.params.id).lean();
+
+    if (!existing) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
+
+    const title = (payload.title ?? existing.title ?? "").trim();
+    const description = (payload.description ?? existing.description ?? "").trim();
+    const venue = (payload.venue ?? existing.venue ?? "").trim();
+    const image = (payload.image ?? existing.image ?? "").trim();
+    const date = (payload.date ?? existing.date ?? "").trim();
+    const capacity =
+      payload.capacity === undefined || payload.capacity === null
+        ? Number(existing.capacity)
+        : Number(payload.capacity);
+    const ticketPriceInput =
+      (payload as Partial<EventDocument> & { ticketPrice?: number }).ticketPrice ?? existing.ticketPrice ?? 0;
+    const ticketPrice = Number(ticketPriceInput);
+
+    if (!title || !description || !venue || !date) {
+      res.status(400).json({ message: "title, description, venue and date are required" });
+      return;
+    }
+
+    if (Number.isNaN(capacity) || capacity < 1) {
+      res.status(400).json({ message: "capacity must be a number greater than 0" });
+      return;
+    }
+
+    if (Number.isNaN(ticketPrice) || ticketPrice < 0) {
+      res.status(400).json({ message: "ticketPrice must be a number greater than or equal to 0" });
+      return;
+    }
+
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.valueOf())) {
+      res.status(400).json({ message: "date must be a valid date string" });
+      return;
+    }
+
+    const streamingProvider =
+      payload.streamingProvider && ['google_meet', 'youtube', 'zoom', 'custom', 'none'].includes(payload.streamingProvider)
+        ? (payload.streamingProvider as StreamingProvider)
+        : existing.streamingProvider || 'none';
+    const streamingUrl =
+      (payload.streamingUrl ?? existing.streamingUrl ?? "").trim();
+
+    if (streamingProvider !== 'none' && streamingUrl && !/^https?:\/\//i.test(streamingUrl)) {
+      res.status(400).json({ message: 'streamingUrl must be a valid HTTP/HTTPS URL' });
+      return;
+    }
+
+    const updated = await EventModel.findByIdAndUpdate(
+      req.params.id,
+      {
+        title,
+        description,
+        venue,
+        image: image || "https://picsum.photos/seed/event/800/600",
+        date: parsedDate.toISOString(),
+        capacity,
+        ticketPrice: Math.round(ticketPrice * 100) / 100,
+        streamingProvider,
+        streamingUrl: streamingProvider === 'none' ? '' : streamingUrl,
+      },
+      { new: true }
+    ).lean();
+
+    res.json(mapEvent(updated as EventDocument));
+  });
+
+  app.delete("/api/events/:id", async (req, res) => {
+    const deletedEvent = await EventModel.findByIdAndDelete(req.params.id).lean();
+
+    if (!deletedEvent) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
+
+    await RegistrationModel.deleteMany({ eventId: req.params.id });
+
+    res.json(mapEvent(deletedEvent as EventDocument));
+  });
+
   app.get("/api/users/:uid/profile", async (req, res) => {
     const profile = await UserProfileModel.findById(req.params.uid).lean();
     if (!profile) {
@@ -519,6 +637,22 @@ async function startServer() {
     await EventModel.findByIdAndUpdate(eventId, { registeredCount: baselineCount + 1 });
 
     res.status(201).json(mapRegistration(newRegistration.toObject() as RegistrationDocument));
+  });
+
+  app.delete("/api/registrations/:id", async (req, res) => {
+    const deleted = await RegistrationModel.findByIdAndDelete(req.params.id).lean();
+
+    if (!deleted) {
+      res.status(404).json({ message: "Registration not found" });
+      return;
+    }
+
+    const remainingRegistrations = await RegistrationModel.countDocuments({ eventId: deleted.eventId });
+    await EventModel.findByIdAndUpdate(deleted.eventId, {
+      registeredCount: Math.max(remainingRegistrations, 0),
+    });
+
+    res.json(mapRegistration(deleted as RegistrationDocument));
   });
 
   app.post("/api/payments/initiate", async (req, res) => {
@@ -664,6 +798,65 @@ async function startServer() {
       ...mapProfile(updatedUser as UserProfileDocument),
       verificationQRCode: qrValue,
       message: "User verified and notification email sent.",
+    });
+  });
+
+  app.post("/api/admin/users/:uid/resend-verification", async (req, res) => {
+    const user = await UserProfileModel.findById(req.params.uid).lean();
+
+    if (!user) {
+      res.status(404).json({ message: "User profile not found" });
+      return;
+    }
+
+    const qrValue = user.verificationQRCode ?? `pending-verification:${req.params.uid}:${Date.now()}`;
+
+    let updatedUser = user as unknown as UserProfileDocument;
+    if (!user.verificationQRCode) {
+      const saved = await UserProfileModel.findByIdAndUpdate(
+        req.params.uid,
+        { verificationQRCode: qrValue },
+        { new: true }
+      ).lean();
+      if (saved) {
+        updatedUser = saved as unknown as UserProfileDocument;
+      }
+    }
+
+    try {
+      await sendVerificationReminderEmail(updatedUser.email, updatedUser.displayName, qrValue);
+    } catch (error) {
+      console.error("Failed to send verification reminder email:", error);
+      res.status(500).json({ message: "Failed to send verification reminder email." });
+      return;
+    }
+
+    res.json({
+      ...mapProfile(updatedUser as UserProfileDocument),
+      verificationQRCode: qrValue,
+      message: "Verification reminder email sent.",
+    });
+  });
+
+  app.patch("/api/admin/users/:uid/deactivate", async (req, res) => {
+    const updatedUser = await UserProfileModel.findByIdAndUpdate(
+      req.params.uid,
+      {
+        role: "user",
+        isVerified: false,
+        $unset: { verificationQRCode: 1 },
+      } as any,
+      { new: true }
+    ).lean();
+
+    if (!updatedUser) {
+      res.status(404).json({ message: "User profile not found" });
+      return;
+    }
+
+    res.json({
+      ...mapProfile(updatedUser as UserProfileDocument),
+      message: "User deactivated successfully.",
     });
   });
 

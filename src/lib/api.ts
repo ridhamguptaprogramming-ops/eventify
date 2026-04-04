@@ -111,6 +111,19 @@ export function createEvent(payload: CreateEventInput) {
   });
 }
 
+export function updateEvent(id: string, payload: Partial<CreateEventInput>) {
+  return apiRequest<Event>(`/api/events/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteEvent(id: string) {
+  return apiRequest<Event>(`/api/events/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function getUserProfile(uid: string) {
   return apiRequest<UserProfile>(`/api/users/${uid}/profile`);
 }
@@ -163,6 +176,18 @@ export function markRegistrationAttendance(id: string, attended = true) {
   });
 }
 
+export function cancelRegistration(id: string) {
+  return apiRequest<Registration>(`/api/registrations/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function deleteRegistration(id: string) {
+  return apiRequest<Registration>(`/api/registrations/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function getAdminOverview() {
   return apiRequest<{ registrations: Registration[]; events: Event[] }>("/api/admin/overview");
 }
@@ -176,7 +201,19 @@ export function getVerifiedUsers() {
 }
 
 export function verifyUser(uid: string) {
-  return apiRequest<UserProfile>(`/api/admin/users/${uid}/verify`, {
+  return apiRequest<UserProfile & { message?: string; warning?: string }>(`/api/admin/users/${uid}/verify`, {
+    method: "PATCH",
+  });
+}
+
+export function resendUserVerification(uid: string) {
+  return apiRequest<UserProfile & { message?: string }>(`/api/admin/users/${uid}/resend-verification`, {
+    method: "POST",
+  });
+}
+
+export function deactivateUser(uid: string) {
+  return apiRequest<UserProfile & { message?: string }>(`/api/admin/users/${uid}/deactivate`, {
     method: "PATCH",
   });
 }

@@ -50,9 +50,9 @@ const features: Feature[] = [
 ];
 
 const stats = [
-  { label: 'Events Hosted', value: '10K+' },
-  { label: 'Attendees', value: '1M+' },
-  { label: 'Cities', value: '50+' },
+  { label: 'Events Hosted', value: '00' },
+  { label: 'Attendees', value: '00' },
+  { label: 'Cities', value: '00' },
 ];
 
 const journey = [
