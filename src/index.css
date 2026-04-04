@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);
@@ -14,11 +36,20 @@
   will-change: transform;
 }
 
+.bg-gradient-flow {
+  background-size: 200% 200%;
+  animation: gradientFlow 16s ease infinite;
+}
+
 .marquee-track:hover {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .bg-gradient-flow {
+    animation: none;
+  }
+
   .marquee-track {
     animation: none;
   }

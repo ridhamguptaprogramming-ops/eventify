@@ -1,10 +1,80 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import gsap from 'gsap';
-import { ArrowRight, Calendar, History, MapPin, Shield, Sparkles, Users, Zap } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  Calendar,
+  CheckCircle2,
+  Clock3,
+  Globe2,
+  LockKeyhole,
+  MapPin,
+  QrCode,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Event, getEvents } from '../lib/api';
+
+type EventCategory = 'Tech' | 'AI' | 'Design';
+
+const LIVE_CATEGORIES: EventCategory[] = ['Tech', 'AI', 'Design'];
+
+const sectionReveal = {
+  hidden: { opacity: 0, y: 36 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+  },
+};
+
+const featureCards = [
+  {
+    title: 'Smart Scheduling',
+    description:
+      'Plan sessions, speakers, and resources in minutes so your team spends less time coordinating and more time delivering standout events.',
+    icon: Calendar,
+  },
+  {
+    title: 'Real-time Attendance',
+    description:
+      'Monitor arrivals and check-ins live to keep crowd flow smooth and make decisions instantly during every event moment.',
+    icon: Users,
+  },
+  {
+    title: 'Secure Access',
+    description:
+      'Protect entries with verified QR access and role-based controls so every attendee interaction stays safe and reliable.',
+    icon: LockKeyhole,
+  },
+];
+
+const testimonials = [
+  {
+    quote:
+      'Esoteric Hub helped us reduce entry queues by 68% and gave our sponsors better performance visibility in real time.',
+    name: 'Priya Mehta',
+    role: 'Head of Events, NovaTech',
+  },
+  {
+    quote:
+      'The dashboard made planning and execution feel effortless. Our team finally had one source of truth for attendance and engagement.',
+    name: 'Daniel Ross',
+    role: 'Operations Manager, PixelCon',
+  },
+  {
+    quote:
+      'From QR check-ins to post-event analytics, Esoteric Hub turned our workflow into a premium experience for both staff and attendees.',
+    name: 'Aarav Kapoor',
+    role: 'Community Lead, BuildSphere',
+  },
+];
+
+const trustedLogos = ['Microsoft', 'Google', 'Adobe', 'Stripe', 'Notion', 'Figma'];
 
 function formatEventDate(date: string) {
   return new Date(date).toLocaleDateString('en-IN', {
@@ -14,56 +84,44 @@ function formatEventDate(date: string) {
   });
 }
 
+function inferEventCategory(event: Event): EventCategory {
+  const content = `${event.title} ${event.description}`.toLowerCase();
+  if (
+    content.includes('machine learning') ||
+    content.includes('artificial intelligence') ||
+    /\b(ai|llm|genai|neural)\b/.test(content)
+  ) {
+    return 'AI';
+  }
+  if (/\b(design|ux|ui|creative|figma|branding|prototype)\b/.test(content)) {
+    return 'Design';
+  }
+  return 'Tech';
+}
+
 export default function LandingPage() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const shapesRef = useRef<HTMLDivElement>(null);
-  const [featuredEvent, setFeaturedEvent] = useState<Event | null>(null);
   const [activeEvents, setActiveEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
-
-  useEffect(() => {
-    if (heroRef.current) {
-      gsap.fromTo(
-        heroRef.current.querySelectorAll('.animate-up'),
-        { opacity: 0, y: 50 },
-        { opacity: 1, y: 0, duration: 1, stagger: 0.2, ease: 'power3.out' }
-      );
-    }
-
-    if (shapesRef.current) {
-      gsap.to(shapesRef.current.querySelectorAll('.floating-shape'), {
-        y: 'random(-40, 40)',
-        x: 'random(-40, 40)',
-        rotation: 'random(-45, 45)',
-        duration: 'random(3, 6)',
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
-        stagger: { amount: 2 }
-      });
-    }
-  }, []);
+  const [activeCategory, setActiveCategory] = useState<EventCategory>('Tech');
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadHomeEventData = async () => {
+    const loadEvents = async () => {
       try {
         const eventsData = await getEvents();
         if (!isMounted) return;
 
         const now = Date.now();
-        const sortedByDateAsc = [...eventsData].sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-        const upcomingEvents = sortedByDateAsc.filter((event) => new Date(event.date).getTime() >= now);
+        const upcoming = [...eventsData]
+          .filter((event) => new Date(event.date).getTime() >= now)
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        setFeaturedEvent(upcomingEvents[0] ?? null);
-        setActiveEvents(upcomingEvents);
+        setActiveEvents(upcoming);
       } catch (error) {
-        console.error('Failed to load home page events:', error);
+        console.error('Failed to load events:', error);
         if (isMounted) {
-          toast.error('Unable to load active events right now.');
+          toast.error('Unable to load live events right now.');
         }
       } finally {
         if (isMounted) {
@@ -72,193 +130,503 @@ export default function LandingPage() {
       }
     };
 
-    void loadHomeEventData();
+    void loadEvents();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
+  const categorizedEvents = useMemo(() => {
+    const grouped: Record<EventCategory, Event[]> = { Tech: [], AI: [], Design: [] };
+    activeEvents.forEach((event) => {
+      grouped[inferEventCategory(event)].push(event);
+    });
+    return grouped;
+  }, [activeEvents]);
+
+  const categoryEvents = categorizedEvents[activeCategory];
+  const featuredEvent = categoryEvents[0] ?? activeEvents[0] ?? null;
+  const liveEventCards =
+    categoryEvents.length > 1
+      ? categoryEvents.slice(1, 4)
+      : activeEvents.filter((event) => event.id !== featuredEvent?.id).slice(0, 3);
+
+  const totalAttendees = activeEvents.reduce((sum, event) => sum + event.capacity, 0);
+  const totalCheckIns = activeEvents.reduce((sum, event) => sum + event.registeredCount, 0);
+  const engagementRate =
+    totalAttendees > 0 ? Math.min(99, Math.max(62, Math.round((totalCheckIns / totalAttendees) * 100))) : 86;
+
   return (
-    <div className="relative min-h-screen bg-[#0F172A] overflow-hidden">
-      {/* Animated Background Shapes */}
-      <div ref={shapesRef} className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="floating-shape absolute top-[10%] left-[5%] w-64 h-64 bg-indigo-600/20 rounded-full blur-[100px]" />
-        <div className="floating-shape absolute top-[40%] right-[10%] w-96 h-96 bg-teal-500/10 rounded-full blur-[120px]" />
-        <div className="floating-shape absolute bottom-[10%] left-[20%] w-80 h-80 bg-pink-500/10 rounded-full blur-[100px]" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-[#060b1f] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(79,70,229,0.28),transparent_42%),radial-gradient(circle_at_75%_18%,rgba(147,51,234,0.24),transparent_40%),radial-gradient(circle_at_62%_78%,rgba(14,165,233,0.2),transparent_46%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-flow bg-[linear-gradient(120deg,rgba(15,23,42,0.96),rgba(30,41,59,0.62),rgba(30,58,138,0.34),rgba(88,28,135,0.42),rgba(15,23,42,0.96))]" />
 
-      {/* Hero Section */}
-      <section ref={heroRef} className="relative pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="animate-up inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-indigo-400 text-sm font-medium mb-8"
-        >
-          <Zap size={14} />
-          <span>The Future of Event Management</span>
-        </motion.div>
-
-        <h1 className="animate-up text-6xl md:text-8xl font-black text-white mb-8 tracking-tight leading-[0.9]">
-          ELEVATE YOUR <br />
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-teal-400 to-pink-400">
-            EVENT EXPERIENCE
-          </span>
-        </h1>
-
-        <p className="animate-up text-xl text-slate-400 max-w-2xl mb-12 leading-relaxed">
-          Premium attendance tracking, real-time analytics, and seamless QR-based check-ins for modern events.
-        </p>
-
-        <div className="animate-up flex flex-col sm:flex-row gap-4">
-          <Link to="/events" className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold text-lg transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2 group">
-            Explore Events <ArrowRight className="group-hover:translate-x-1 transition-transform" />
-          </Link>
-          <button className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl font-bold text-lg transition-all backdrop-blur-sm">
-            Watch Demo
-          </button>
-        </div>
-
-        {/* Stats / Features Grid */}
-        <div className="animate-up grid grid-cols-1 md:grid-cols-3 gap-8 mt-32 w-full">
-          {[
-            { icon: <Calendar className="text-indigo-400" />, title: "Smart Scheduling", desc: "Manage complex event timelines with ease." },
-            { icon: <Users className="text-teal-400" />, title: "Real-time Attendance", desc: "Track check-ins live with QR technology." },
-            { icon: <Shield className="text-pink-400" />, title: "Secure Access", desc: "Enterprise-grade security for your data." }
-          ].map((feature, i) => (
-            <div key={i} className="p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all group">
-              <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                {feature.icon}
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-              <p className="text-slate-400 leading-relaxed">{feature.desc}</p>
+      <section className="relative px-6 pt-36 pb-24">
+        <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-2">
+          <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-indigo-300/30 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-200 backdrop-blur-xl">
+              <Sparkles size={15} />
+              Modern Event OS
             </div>
-          ))}
+
+            <h1 className="text-5xl font-black leading-tight tracking-tight text-white md:text-7xl">
+              Elevate Your{' '}
+              <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">
+                Event Experience
+              </span>
+            </h1>
+
+            <p className="mt-7 max-w-xl text-lg leading-relaxed text-slate-300">
+              Track attendance, manage events, and analyze performance — all in one intelligent platform.
+            </p>
+
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                <Link
+                  to="/events"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-7 py-4 text-base font-bold text-white shadow-[0_0_28px_rgba(99,102,241,0.5)] transition-all hover:bg-indigo-500 hover:shadow-[0_0_40px_rgba(129,140,248,0.6)]"
+                >
+                  Explore Events
+                  <ArrowRight size={18} />
+                </Link>
+              </motion.div>
+
+              <motion.a
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                href="#dashboard-preview"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-7 py-4 text-base font-semibold text-white backdrop-blur-xl transition-all hover:border-indigo-300/40 hover:bg-indigo-500/15"
+              >
+                See It in Action
+              </motion.a>
+            </div>
+
+            <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+              Trusted by 10,000+ event organizers
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.18 }}
+            className="relative"
+          >
+            <div className="absolute -inset-6 rounded-[2.2rem] bg-gradient-to-r from-indigo-500/30 via-violet-500/20 to-cyan-400/25 blur-3xl" />
+            <div className="relative rounded-[2rem] border border-white/15 bg-white/5 p-6 backdrop-blur-2xl">
+              <div className="mb-5 flex items-center justify-between rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-indigo-200">Dashboard Preview</p>
+                  <p className="mt-1 text-sm font-semibold text-white">Esoteric Hub Analytics</p>
+                </div>
+                <div className="rounded-xl bg-emerald-400/20 px-3 py-1 text-xs font-semibold text-emerald-300">Live</div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
+                  <p className="text-xs text-slate-400">Attendees</p>
+                  <p className="mt-1 text-xl font-black text-white">{(totalAttendees || 12500).toLocaleString()}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
+                  <p className="text-xs text-slate-400">Check-ins</p>
+                  <p className="mt-1 text-xl font-black text-white">{(totalCheckIns || 9830).toLocaleString()}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-900/65 p-4">
+                  <p className="text-xs text-slate-400">Engagement</p>
+                  <p className="mt-1 text-xl font-black text-white">{engagementRate}%</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/55 p-4">
+                <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
+                  <span>Event Performance</span>
+                  <span>This Week</span>
+                </div>
+                <div className="flex h-24 items-end gap-2">
+                  {[42, 58, 46, 74, 69, 82, 91].map((value) => (
+                    <div key={value} className="flex-1 rounded-t-lg bg-gradient-to-t from-indigo-500 to-cyan-400/90" style={{ height: `${value}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      <section className="relative px-6 pb-12">
-        <div className="max-w-7xl mx-auto rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/10 text-xs uppercase tracking-[0.22em] font-bold text-indigo-300">
-            Active Events
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-3xl font-black md:text-4xl">Built for High-impact Event Teams</h2>
+          <p className="mt-3 max-w-2xl text-slate-300">
+            Powerful capabilities designed to help your team move faster, delight attendees, and drive measurable outcomes.
+          </p>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {featureCards.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <motion.div
+                  key={feature.title}
+                  whileHover={{ y: -9, scale: 1.01 }}
+                  className="group relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 p-7 backdrop-blur-2xl transition-all duration-300 hover:shadow-[0_0_38px_rgba(129,140,248,0.3)]"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/14 via-blue-500/7 to-purple-500/12 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="relative">
+                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/18 text-indigo-200">
+                      <Icon size={22} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">{feature.title}</h3>
+                    <p className="mt-3 leading-relaxed text-slate-300">{feature.description}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
+        </div>
+      </motion.section>
+
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/12 bg-white/5 p-8 backdrop-blur-2xl md:p-10">
+          <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-3xl font-black md:text-4xl">Live Events Happening Now</h2>
+              <p className="mt-2 text-slate-300">Discover and join the hottest sessions currently active on Esoteric Hub.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {LIVE_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`rounded-full border px-5 py-2 text-sm font-semibold transition-all ${
+                    activeCategory === category
+                      ? 'border-indigo-300/70 bg-indigo-500/25 text-white shadow-[0_0_24px_rgba(99,102,241,0.45)]'
+                      : 'border-white/20 bg-white/5 text-slate-300 hover:border-indigo-300/45 hover:text-white'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {eventsLoading ? (
-            <div className="h-16 bg-white/5 animate-pulse" />
-          ) : activeEvents.length > 0 ? (
-            <div className="relative overflow-hidden">
-              <div className="marquee-track flex w-max items-center gap-4 py-4 px-4">
-                {[...activeEvents, ...activeEvents].map((event, index) => (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="h-80 rounded-3xl bg-white/10 animate-pulse lg:col-span-2" />
+              <div className="space-y-4">
+                <div className="h-24 rounded-2xl bg-white/10 animate-pulse" />
+                <div className="h-24 rounded-2xl bg-white/10 animate-pulse" />
+                <div className="h-24 rounded-2xl bg-white/10 animate-pulse" />
+              </div>
+            </div>
+          ) : featuredEvent ? (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <motion.div
+                whileHover={{ y: -6 }}
+                className="group relative overflow-hidden rounded-3xl border border-white/15 bg-slate-950/70 lg:col-span-2"
+              >
+                <img src={featuredEvent.image} alt={featuredEvent.title} className="h-80 w-full object-cover transition-transform duration-700 group-hover:scale-105" referrerPolicy="no-referrer" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#050913] via-[#050913]/60 to-transparent" />
+                <div className="absolute left-6 right-6 bottom-6">
+                  <span className="inline-flex rounded-full border border-indigo-300/45 bg-indigo-500/25 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-100">
+                    {inferEventCategory(featuredEvent)}
+                  </span>
+                  <h3 className="mt-3 text-2xl font-black text-white">{featuredEvent.title}</h3>
+                  <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-200">
+                    <span className="inline-flex items-center gap-2">
+                      <Calendar size={15} className="text-indigo-200" />
+                      {formatEventDate(featuredEvent.date)}
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <MapPin size={15} className="text-cyan-200" />
+                      {featuredEvent.venue}
+                    </span>
+                  </div>
                   <Link
-                    key={`${event.id}-${index}`}
-                    to={`/events/${event.id}`}
-                    className="shrink-0 whitespace-nowrap rounded-2xl border border-indigo-400/20 bg-indigo-500/10 px-4 py-2 text-sm text-slate-100 hover:bg-indigo-500/20 transition-colors"
+                    to={`/events/${featuredEvent.id}`}
+                    className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-all hover:border-indigo-300/50 hover:bg-indigo-500/20"
                   >
-                    <span className="font-semibold">{event.title}</span>
-                    <span className="mx-2 text-indigo-300">|</span>
-                    <span className="text-slate-300">{formatEventDate(event.date)}</span>
-                    <span className="mx-2 text-indigo-300">|</span>
-                    <span className="text-slate-300">{event.venue}</span>
+                    View Featured Event
+                    <ArrowRight size={15} />
                   </Link>
-                ))}
+                </div>
+              </motion.div>
+
+              <div className="space-y-4">
+                {liveEventCards.length > 0 ? (
+                  liveEventCards.map((event) => (
+                    <motion.div
+                      key={event.id}
+                      whileHover={{ x: 5 }}
+                      className="rounded-2xl border border-white/15 bg-slate-950/65 p-4 transition-all hover:border-indigo-300/40"
+                    >
+                      <p className="text-sm font-semibold text-white">{event.title}</p>
+                      <p className="mt-1 text-xs text-slate-400">{formatEventDate(event.date)} • {event.venue}</p>
+                      <Link
+                        to={`/events/${event.id}`}
+                        className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-indigo-200 hover:text-white"
+                      >
+                        Open Event
+                        <ArrowRight size={13} />
+                      </Link>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-white/15 bg-slate-950/65 p-5">
+                    <p className="text-sm text-slate-300">No more events in this category yet. Switch filters to explore more live events.</p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
-            <p className="px-6 py-5 text-slate-300 text-sm">No active events available right now.</p>
+            <div className="rounded-2xl border border-white/15 bg-slate-950/65 p-6">
+              <p className="text-slate-300">No live events are available right now. Create an event to get started.</p>
+            </div>
           )}
         </div>
-      </section>
+      </motion.section>
 
-      <section className="relative px-6 pb-20">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
-          <div className="lg:col-span-2 p-8 rounded-3xl bg-gradient-to-br from-indigo-600/15 to-teal-500/10 border border-white/10 backdrop-blur-sm">
-            <p className="text-xs uppercase tracking-[0.2em] text-indigo-300 mb-3 font-bold flex items-center gap-2">
-              <Sparkles size={14} /> Next Active Event
-            </p>
-            {eventsLoading ? (
-              <div className="space-y-3">
-                <div className="h-6 w-2/3 rounded bg-white/10 animate-pulse" />
-                <div className="h-4 w-1/2 rounded bg-white/10 animate-pulse" />
-                <div className="h-20 rounded bg-white/10 animate-pulse" />
-              </div>
-            ) : featuredEvent ? (
-              <>
-                <h3 className="text-2xl font-black text-white mb-3">{featuredEvent.title}</h3>
-                <div className="space-y-2 text-sm text-slate-300 mb-5">
-                  <p className="flex items-center gap-2">
-                    <Calendar size={15} className="text-indigo-400" />
-                    {formatEventDate(featuredEvent.date)}
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <MapPin size={15} className="text-teal-400" />
-                    {featuredEvent.venue}
-                  </p>
-                </div>
-                <p className="text-slate-300 leading-relaxed mb-6 line-clamp-4">{featuredEvent.description}</p>
-                <Link
-                  to={`/events/${featuredEvent.id}`}
-                  className="inline-flex items-center gap-2 text-indigo-300 font-semibold hover:text-white transition-colors"
-                >
-                  Open Event <ArrowRight size={16} />
-                </Link>
-              </>
-            ) : (
-              <p className="text-slate-300">No active events are available yet. Create one to see it highlighted here.</p>
-            )}
-          </div>
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-3">
+          {[
+            { label: 'Events Hosted', value: '10K+' },
+            { label: 'Attendees', value: '1M+' },
+            { label: 'Platform Uptime', value: '99.9%' },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-3xl border border-white/15 bg-gradient-to-br from-indigo-500/18 via-slate-900/65 to-cyan-500/10 p-8 text-center backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_36px_rgba(56,189,248,0.25)]"
+            >
+              <p className="text-4xl font-black text-white">{stat.value}</p>
+              <p className="mt-2 text-sm uppercase tracking-[0.16em] text-slate-300">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </motion.section>
 
-          <div className="lg:col-span-3 p-8 rounded-3xl bg-white/5 border border-white/10">
-            <h2 className="text-2xl font-black text-white mb-2 flex items-center gap-3">
-              <History className="text-pink-400" size={24} />
-              Active Event Queue
-            </h2>
-            <p className="text-slate-400 mb-6">Currently active events listed in upcoming order.</p>
+      <motion.section
+        id="dashboard-preview"
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-3xl font-black md:text-4xl">Command Dashboard Preview</h2>
+          <p className="mt-3 max-w-2xl text-slate-300">
+            A centralized analytics workspace to monitor attendees, check-ins, and engagement across every event stream.
+          </p>
 
-            {eventsLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-16 rounded-2xl bg-white/5 animate-pulse" />
-                ))}
+          <div className="mt-10 rounded-[2rem] border border-white/12 bg-slate-950/60 p-6 backdrop-blur-2xl md:p-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-indigo-200">Realtime Analytics</p>
+                <p className="mt-1 text-2xl font-black text-white">Esoteric Hub Dashboard</p>
               </div>
-            ) : activeEvents.length > 0 ? (
-              <div className="space-y-4">
-                {activeEvents.slice(0, 3).map((event, index) => (
-                  <div
-                    key={event.id}
-                    className="flex items-start gap-4 p-4 rounded-2xl bg-[#111a32] border border-white/5 hover:border-indigo-400/30 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-sm font-bold">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white font-bold">{event.title}</p>
-                      <p className="text-slate-400 text-sm mt-1">{formatEventDate(event.date)} - {event.venue}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/35 bg-emerald-400/15 px-4 py-1.5 text-xs font-semibold text-emerald-300">
+                <Clock3 size={14} />
+                Synced every 30s
               </div>
-            ) : (
-              <div className="p-6 rounded-2xl bg-[#111a32] border border-white/5">
-                <p className="text-white font-semibold mb-1">No active events yet</p>
-                <p className="text-slate-400 text-sm">
-                  Active events will appear here automatically once they are scheduled.
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
+                <p className="text-xs text-slate-400">Attendees</p>
+                <p className="mt-1 text-2xl font-black text-white">{(totalAttendees || 120340).toLocaleString()}</p>
+              </div>
+              <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
+                <p className="text-xs text-slate-400">Check-ins</p>
+                <p className="mt-1 text-2xl font-black text-white">{(totalCheckIns || 98740).toLocaleString()}</p>
+              </div>
+              <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
+                <p className="text-xs text-slate-400">Engagement</p>
+                <p className="mt-1 text-2xl font-black text-white">{engagementRate}%</p>
+              </div>
+              <div className="rounded-2xl border border-white/12 bg-white/5 p-4">
+                <p className="text-xs text-slate-400">Growth</p>
+                <p className="mt-1 inline-flex items-center gap-1 text-2xl font-black text-emerald-300">
+                  <TrendingUp size={18} />
+                  +18%
                 </p>
               </div>
-            )}
+            </div>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-3">
+              <div className="rounded-2xl border border-white/12 bg-white/5 p-5 lg:col-span-2">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-white">Attendance vs Engagement</p>
+                  <BarChart3 size={17} className="text-indigo-200" />
+                </div>
+                <div className="flex h-36 items-end gap-3">
+                  {[54, 72, 61, 83, 76, 88, 92].map((value) => (
+                    <div key={value} className="flex-1 rounded-t-xl bg-gradient-to-t from-indigo-500 to-cyan-400" style={{ height: `${value}%` }} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/12 bg-white/5 p-5">
+                <p className="text-sm font-semibold text-white">Live Health</p>
+                <ul className="mt-4 space-y-3 text-sm text-slate-300">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-300" />
+                    Check-in gateways stable
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-indigo-200" />
+                    Security layers active
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Globe2 size={16} className="text-cyan-200" />
+                    Multi-venue sync enabled
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* Trust Section */}
-      <section className="py-20 border-t border-white/5 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-12">Trusted by Innovation Leaders</p>
-          <div className="flex flex-wrap justify-center gap-12 opacity-40 grayscale">
-            {['Microsoft', 'Google', 'Adobe', 'Stripe', 'Figma'].map(brand => (
-              <span key={brand} className="text-2xl font-black text-white">{brand}</span>
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-3xl font-black md:text-4xl">What Customers Say</h2>
+          <div className="mt-9 grid gap-6 md:grid-cols-3">
+            {testimonials.map((review) => (
+              <div
+                key={review.name}
+                className="rounded-3xl border border-white/15 bg-white/5 p-7 backdrop-blur-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_28px_rgba(129,140,248,0.3)]"
+              >
+                <p className="text-slate-200 leading-relaxed">“{review.quote}”</p>
+                <p className="mt-6 font-bold text-white">{review.name}</p>
+                <p className="text-sm text-slate-400">{review.role}</p>
+              </div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
+
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/12 bg-white/5 p-8 backdrop-blur-2xl md:p-10">
+          <h2 className="text-3xl font-black md:text-4xl">How It Works</h2>
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
+            {[
+              {
+                step: 'Step 1',
+                title: 'Create Event',
+                description: 'Launch events with schedules, ticketing, and venue details in one polished workflow.',
+                icon: Calendar,
+              },
+              {
+                step: 'Step 2',
+                title: 'Share QR Code',
+                description: 'Distribute secure event QR codes instantly to attendees and partners.',
+                icon: QrCode,
+              },
+              {
+                step: 'Step 3',
+                title: 'Track Attendance',
+                description: 'Watch check-ins and engagement analytics update live from your dashboard.',
+                icon: TrendingUp,
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.title}
+                  whileHover={{ y: -6 }}
+                  className="rounded-2xl border border-white/15 bg-slate-950/60 p-6 transition-all hover:border-indigo-300/40"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-200">{item.step}</p>
+                  <div className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-100">
+                    <Icon size={20} />
+                  </div>
+                  <h3 className="mt-4 text-xl font-bold text-white">{item.title}</h3>
+                  <p className="mt-2 text-slate-300">{item.description}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.section>
+
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-24"
+      >
+        <div className="mx-auto max-w-7xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Trusted By</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-5">
+            {trustedLogos.map((logo, index) => (
+              <motion.div
+                key={logo}
+                whileHover={{ scale: 1.06, y: -3 }}
+                animate={{ opacity: [0.45, 1, 0.45] }}
+                transition={{ duration: 3.4, repeat: Infinity, delay: index * 0.2 }}
+                className="rounded-2xl border border-white/12 bg-white/5 px-6 py-3 font-semibold text-slate-200 backdrop-blur-xl shadow-[0_0_0_rgba(129,140,248,0)] transition-all hover:border-indigo-300/45 hover:shadow-[0_0_22px_rgba(129,140,248,0.35)]"
+              >
+                {logo}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      <motion.section
+        variants={sectionReveal}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="relative px-6 pb-20"
+      >
+        <div className="mx-auto max-w-5xl rounded-[2rem] border border-indigo-300/25 bg-gradient-to-r from-indigo-500/24 via-purple-500/22 to-cyan-500/20 p-10 text-center backdrop-blur-2xl md:p-14">
+          <h2 className="text-3xl font-black text-white md:text-5xl">Ready to elevate your events?</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-slate-100/90">
+            Join teams creating smarter, more engaging event experiences with Esoteric Hub.
+          </p>
+          <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.98 }} className="mt-8">
+            <Link
+              to="/events"
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-slate-950/55 px-8 py-4 text-base font-bold text-white transition-all hover:border-cyan-200/60 hover:shadow-[0_0_30px_rgba(56,189,248,0.4)]"
+            >
+              Get Started Free
+              <ArrowRight size={18} />
+            </Link>
+          </motion.div>
+        </div>
+      </motion.section>
     </div>
   );
 }
