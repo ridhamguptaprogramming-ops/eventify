@@ -130,6 +130,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8">
           <NavLink to="/" className={getNavLinkClasses}>Home</NavLink>
           <NavLink to="/events" className={getNavLinkClasses}>Events</NavLink>
+          <NavLink to="/event-highlights" className={getNavLinkClasses}>Highlights</NavLink>
           <NavLink to="/about" className={getNavLinkClasses}>About</NavLink>
   
           {user ? (
@@ -185,6 +186,7 @@ export default function Navbar() {
           >
             <NavLink to="/" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Home</NavLink>
             <NavLink to="/events" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Events</NavLink>
+            <NavLink to="/event-highlights" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Highlights</NavLink>
             <NavLink to="/about" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">About</NavLink>
             <NavLink to="/help" onClick={() => setIsOpen(false)} className="text-lg text-white/80 py-2">Contact Support</NavLink>
             <button onClick={handleShareApp} className="flex items-center gap-2 text-lg text-white/80 py-2">

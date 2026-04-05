@@ -16,6 +16,7 @@ import HelpPage from './pages/HelpPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import PartnershipsPage from './pages/PartnershipsPage';
+import EventHighlightsPage from './pages/EventHighlightsPage';
 
 const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) => {
   const { user, profile, loading, isAdmin } = useAuth();
@@ -59,6 +60,7 @@ function AppContent() {
             <Route path="/events" element={withPageTransition(<EventsPage />)} />
             <Route path="/events/new" element={withPageTransition(<CreateEventPage />)} />
             <Route path="/events/:id" element={withPageTransition(<EventDetailsPage />)} />
+            <Route path="/event-highlights" element={withPageTransition(<EventHighlightsPage />)} />
             <Route path="/about" element={withPageTransition(<AboutPage />)} />
             <Route path="/help" element={withPageTransition(<HelpPage />)} />
             <Route path="/privacy" element={withPageTransition(<PrivacyPage />)} />
