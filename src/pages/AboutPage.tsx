@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Compass,
   Globe,
+  Instagram,
   Lightbulb,
   Linkedin,
   Rocket,
@@ -26,6 +27,8 @@ type TeamMember = {
   role: string;
   impact: string;
   linkedin: string;
+  Instagram?: string;
+  image?: string;
 };
 
 const features: Feature[] = [
@@ -56,8 +59,8 @@ const stats = [
 ];
 
 const journey = [
-  { year: '2024', milestone: 'Idea', detail: 'We identified the operational chaos most event teams face and drafted our first product principles.' },
-  { year: '2025', milestone: 'MVP', detail: 'We shipped the first Esoteric Hub MVP focused on check-ins, operations, and event visibility.' },
+  { year: '2025', milestone: 'Idea', detail: 'We identified the operational chaos most event teams face and drafted our first product principles.' },
+  { year: '2026', milestone: 'MVP', detail: 'We shipped the first Esoteric Hub MVP focused on check-ins, operations, and event visibility.' },
   { year: '2026', milestone: 'Growth', detail: 'We scaled globally with richer analytics, stronger reliability, and a growing organizer community.' },
 ];
 
@@ -65,30 +68,60 @@ const team: TeamMember[] = [
   {
     name: 'Ridham Gupta',
     role: 'Co-Founder & CEO',
+    image: 'image/2.png',
     impact: 'Shapes product direction so teams can run events with less complexity and more impact.',
     linkedin: 'https://www.linkedin.com/in/ridham-gupta-09056a386/',
+    Instagram: 'https://www.instagram.com/i.ridhamgupta/?hl=en',
   },
   {
     name: 'Pranav Sharma',
     role: 'Co-Founder & CTO',
+    image: 'image/1.png',
     impact: 'Leads platform architecture to ensure speed, resilience, and scalability at every event touchpoint.',
-    linkedin: 'https://www.linkedin.com/in/hackwithpranav/',
+    linkedin: 'https://www.linkedin.com/in/hackwithpranav?utm_source=share_via&utm_content=profile&utm_medium=member_android',
+    Instagram: 'https://www.instagram.com/01pranav_sharma?igsh=MXczejU4bmUyb3Nqcg%3D%3D',
   },
   {
     name: 'Arman Khan',
     role: 'Engineering Lead',
+    image: 'image/3.png',
     impact: 'Builds core product systems that keep live event operations fast, stable, and intelligent.',
     linkedin: 'https://www.linkedin.com/in/arman-khan-778874350/',
   },
   {
     name: 'Mohammad Ayan Khan',
     role: 'Lead Designer',
+    image: 'image/4.png',
     impact: 'Crafts intuitive experiences that make complex event workflows feel simple and effortless.',
     linkedin: 'https://www.linkedin.com/in/mohammad-ayan-khan-40a164333/',
+     Instagram: 'https://www.instagram.com/ayan_verse_diaries?igsh=MTlsMThsdWMxa3ZuZw%3D%3D'
   },
   {
     name: 'Khushal Agarwal',
     role: 'Head of Marketing',
+    image: 'image/5.png',
+    impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
+    linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
+     Instagram: 'https://www.instagram.com/k_garg_4/'
+  },
+   {
+    name: 'Khushal Agarwal',
+    role: 'Head of Marketing',
+    image: 'image/6.png',
+    impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
+    linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
+  },
+   {
+    name: 'Khushal Agarwal',
+    role: 'Head of Marketing',
+    image: 'image/7.png',
+    impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
+    linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
+  },
+    {
+    name: 'Khushal Agarwal',
+    role: 'Head of Marketing',
+    image: 'image/7.png',
     impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
     linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
   },
@@ -277,42 +310,70 @@ export default function AboutPage() {
         <motion.section
           {...revealOnScroll(0.2)}
         >
-          <h2 className="text-3xl font-black md:text-4xl">Team Behind The Platform</h2>
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {team.map((member, index) => (
-              <motion.article
-                key={member.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.35 }}
-                transition={{ duration: 0.5, delay: index * 0.08 }}
-                className="group rounded-3xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-2xl transition-all duration-300 hover:-translate-y-2 hover:border-blue-300/55 hover:shadow-[0_0_42px_rgba(96,165,250,0.2)]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-sm font-bold text-blue-200">
-                    {member.name
-                      .split(' ')
-                      .slice(0, 2)
-                      .map((part) => part[0]?.toUpperCase() ?? '')
-                      .join('')}
-                  </div>
-                  <a
-                    href={member.linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`${member.name} LinkedIn`}
-                    className="rounded-xl border border-white/20 bg-white/5 p-2 text-slate-300 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-300/60 hover:bg-blue-500/20 hover:text-blue-100 hover:shadow-[0_0_18px_rgba(96,165,250,0.4)]"
-                  >
-                    <Linkedin size={16} />
-                  </a>
-                </div>
-                <h3 className="mt-5 text-xl font-bold">{member.name}</h3>
-                <p className="text-sm text-blue-200">{member.role}</p>
-                <p className="mt-3 text-sm leading-relaxed text-slate-300">{member.impact}</p>
-              </motion.article>
-            ))}
-          </div>
-        </motion.section>
+        <h2 className="text-3xl font-black md:text-4xl">Team Behind The Platform</h2>
+
+<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  {team.map((member, index) => (
+    <motion.article
+      key={member.name}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.35 }}
+      transition={{ duration: 0.5, delay: index * 0.08 }}
+      className="group rounded-3xl border border-white/15 bg-white/[0.06] p-6 backdrop-blur-2xl transition-all duration-300 hover:-translate-y-2 hover:border-blue-300/55 hover:shadow-[0_0_42px_rgba(96,165,250,0.2)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        
+        <div className="flex h-90 w-80 items-center justify-center overflow-hidden rounded-2xl border border-white/80 bg-white/80">
+          {member.image ? (
+            <img
+              src={member.image}
+              alt={member.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="text-sm font-bold text-blue-200">
+              {member.name
+                .split(' ')
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase() ?? '')
+                .join('')}
+            </span>
+          )}
+        </div>
+
+        {/* LINKEDIN BUTTON */}
+        <a
+          href={member.linkedin}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${member.name} LinkedIn`}
+          className="rounded-xl border border-white/20 bg-white/5 p-2 text-slate-300 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-300/60 hover:bg-blue-500/20 hover:text-blue-100 hover:shadow-[0_0_18px_rgba(96,165,250,0.4)]"
+        >
+          <Linkedin size={16} />
+
+          {/* INSTAGRAM BUTTON */}
+          <a
+            href={member.Instagram}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`${member.name} Instagram`}
+            className="ml-2 rounded-xl border border-white/20 bg-white/5 p-2 text-slate-300 transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-300/60 hover:bg-purple-500/20 hover:text-purple-100 hover:shadow-[0_0_18px_rgba(168,85,247,0.4)]"
+          >
+            <  Instagram size={16} />
+          </a>
+        </a>
+      </div>
+
+      <h3 className="mt-5 text-xl font-bold">{member.name}</h3>
+      <p className="text-sm text-blue-200">{member.role}</p>
+      <p className="mt-3 text-sm leading-relaxed text-slate-300">
+        {member.impact}
+      </p>
+    </motion.article>
+  ))}
+</div>
+</motion.section>
 
         <motion.section
           {...revealOnScroll(0.3)}

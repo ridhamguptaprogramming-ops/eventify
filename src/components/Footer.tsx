@@ -33,9 +33,9 @@ export default function Footer() {
             <div className="mt-8 flex flex-wrap gap-3">
               {[
                 { icon: Instagram, href: 'https://www.instagram.com/esoteric.hub/?hl=en', label: 'Instagram' },
-                { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
-                { icon: Linkedin, href: 'https://www.linkedin.com', label: 'LinkedIn' },
-                { icon: Github, href: 'https://github.com', label: 'GitHub' },
+                // { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
+                // { icon: Linkedin, href: 'https://www.linkedin.com', label: 'LinkedIn' },
+                // { icon: Github, href: 'https://github.com', label: 'GitHub' },
                 { icon: Youtube, href: 'https://www.youtube.com', label: 'YouTube' },
               ].map((item) => {
                 const Icon = item.icon;
