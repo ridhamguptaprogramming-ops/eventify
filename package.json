@@ -1,6 +1,5 @@
 {
-  "name": "react-example",
-  "private": true,
+  "name": "@ridhamguptaprogramming-ops/eventify",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -53,5 +52,21 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "description": "<div align=\"center\"> <!-- <img width=\"1200\" height=\"475\" alt=\"GHBanner\" src=\"[text](https://t6czgmjm-3000.inc1.devtunnels.ms/)\" /> </div> -->",
+  "main": "playground-2.mongodb.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ridhamguptaprogramming-ops/eventify.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ridhamguptaprogramming-ops/eventify/issues"
+  },
+  "homepage": "https://github.com/ridhamguptaprogramming-ops/eventify#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }

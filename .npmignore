@@ -1,0 +1,19 @@
+# Dev & build
+node_modules/
+dist/
+.env
+.env.*
+
+# Config & tooling
+vite.config.*
+tsconfig*.json
+*.config.ts
+*.config.js
+
+# Source (only publish built output)
+src/
+server.ts
+
+# Misc
+*.log
+.DS_Store
