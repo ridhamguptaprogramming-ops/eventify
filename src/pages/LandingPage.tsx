@@ -17,7 +17,14 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Event, getEvents } from '../lib/api';
+import { Event, EventStatus, getEvents } from '../lib/api';
+import {
+  formatEventDateTime,
+  getEventAttendeesCount,
+  getEventLocation,
+  getEventStartDate,
+  getEventStatus,
+} from '../lib/eventLifecycle';
 
 type EventCategory = 'Tech' | 'AI' | 'Design';
 
@@ -76,12 +83,40 @@ const testimonials = [
 
 const trustedLogos = ['Microsoft', 'Google', 'Adobe', 'Stripe', 'Notion', 'Figma'];
 
-function formatEventDate(date: string) {
-  return new Date(date).toLocaleDateString('en-IN', {
+function formatEventDate(date?: string) {
+  return formatEventDateTime(date, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    hour: undefined,
+    minute: undefined,
   });
+}
+
+function getHomeStatusUi(status: EventStatus) {
+  if (status === 'ongoing') {
+    return {
+      label: 'Live Now',
+      badgeClass:
+        'border border-emerald-300/45 bg-emerald-500/25 text-emerald-100',
+      ctaLabel: 'Join Event',
+      ctaHref: undefined as string | undefined,
+    };
+  }
+  if (status === 'completed') {
+    return {
+      label: 'Event Ended',
+      badgeClass: 'border border-slate-300/35 bg-slate-500/25 text-slate-100',
+      ctaLabel: 'View Highlights',
+      ctaHref: '/event-highlights',
+    };
+  }
+  return {
+    label: 'Upcoming',
+    badgeClass: 'border border-blue-300/45 bg-blue-500/25 text-blue-100',
+    ctaLabel: 'Register Now',
+    ctaHref: undefined as string | undefined,
+  };
 }
 
 function inferEventCategory(event: Event): EventCategory {
@@ -112,12 +147,20 @@ export default function LandingPage() {
         const eventsData = await getEvents();
         if (!isMounted) return;
 
-        const now = Date.now();
-        const upcoming = [...eventsData]
-          .filter((event) => new Date(event.date).getTime() >= now)
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const sortedEvents = [...eventsData].sort((left, right) => {
+          const rank = (event: Event) => {
+            const status = getEventStatus(event);
+            return status === 'ongoing' ? 0 : status === 'upcoming' ? 1 : 2;
+          };
+          const rankDiff = rank(left) - rank(right);
+          if (rankDiff !== 0) return rankDiff;
 
-        setActiveEvents(upcoming);
+          const leftStart = getEventStartDate(left)?.getTime() ?? 0;
+          const rightStart = getEventStartDate(right)?.getTime() ?? 0;
+          return leftStart - rightStart;
+        });
+
+        setActiveEvents(sortedEvents);
       } catch (error) {
         console.error('Failed to load events:', error);
         if (isMounted) {
@@ -131,9 +174,13 @@ export default function LandingPage() {
     };
 
     void loadEvents();
+    const pollId = window.setInterval(() => {
+      void loadEvents();
+    }, 60_000);
 
     return () => {
       isMounted = false;
+      window.clearInterval(pollId);
     };
   }, []);
 
@@ -153,9 +200,14 @@ export default function LandingPage() {
       : activeEvents.filter((event) => event.id !== featuredEvent?.id).slice(0, 3);
 
   const totalAttendees = activeEvents.reduce((sum, event) => sum + event.capacity, 0);
-  const totalCheckIns = activeEvents.reduce((sum, event) => sum + event.registeredCount, 0);
+  const totalCheckIns = activeEvents.reduce(
+    (sum, event) => sum + getEventAttendeesCount(event),
+    0
+  );
   const engagementRate =
     totalAttendees > 0 ? Math.min(99, Math.max(62, Math.round((totalCheckIns / totalAttendees) * 100))) : 86;
+  const featuredStatus = featuredEvent ? getEventStatus(featuredEvent) : null;
+  const featuredStatusUi = featuredStatus ? getHomeStatusUi(featuredStatus) : null;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#060b1f] text-white">
@@ -301,8 +353,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/12 bg-white/5 p-8 backdrop-blur-2xl md:p-10">
           <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 className="text-3xl font-black md:text-4xl">Live Events Happening Now</h2>
-              <p className="mt-2 text-slate-300">Discover and join the hottest sessions currently active on Esoteric Hub.</p>
+              <h2 className="text-3xl font-black md:text-4xl">Event Pulse on Esoteric Hub</h2>
+              <p className="mt-2 text-slate-300">
+                Track upcoming, live, and recently completed experiences in one feed.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -335,30 +389,41 @@ export default function LandingPage() {
             <div className="grid gap-6 lg:grid-cols-3">
               <motion.div
                 whileHover={{ y: -6 }}
-                className="group relative overflow-hidden rounded-3xl border border-white/15 bg-slate-950/70 lg:col-span-2"
+                className={`group relative overflow-hidden rounded-3xl border border-white/15 bg-slate-950/70 lg:col-span-2 ${
+                  featuredStatus === 'completed' ? 'opacity-90' : ''
+                }`}
               >
                 <img src={featuredEvent.image} alt={featuredEvent.title} className="h-80 w-full object-cover transition-transform duration-700 group-hover:scale-105" referrerPolicy="no-referrer" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#050913] via-[#050913]/60 to-transparent" />
+                {featuredStatus === 'completed' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-950/40">
+                    <span className="rounded-full border border-slate-200/30 bg-slate-900/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100">
+                      Event Completed
+                    </span>
+                  </div>
+                )}
                 <div className="absolute left-6 right-6 bottom-6">
-                  <span className="inline-flex rounded-full border border-indigo-300/45 bg-indigo-500/25 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-100">
-                    {inferEventCategory(featuredEvent)}
+                  <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${featuredStatusUi?.badgeClass ?? ''}`}>
+                    {featuredStatusUi?.label ?? inferEventCategory(featuredEvent)}
                   </span>
                   <h3 className="mt-3 text-2xl font-black text-white">{featuredEvent.title}</h3>
                   <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-200">
                     <span className="inline-flex items-center gap-2">
                       <Calendar size={15} className="text-indigo-200" />
-                      {formatEventDate(featuredEvent.date)}
+                      {formatEventDate(
+                        (featuredEvent.startDateTime || featuredEvent.date) ?? undefined
+                      )}
                     </span>
                     <span className="inline-flex items-center gap-2">
                       <MapPin size={15} className="text-cyan-200" />
-                      {featuredEvent.venue}
+                      {getEventLocation(featuredEvent)}
                     </span>
                   </div>
                   <Link
-                    to={`/events/${featuredEvent.id}`}
+                    to={featuredStatusUi?.ctaHref ?? `/events/${featuredEvent.id}`}
                     className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-all hover:border-indigo-300/50 hover:bg-indigo-500/20"
                   >
-                    View Featured Event
+                    {featuredStatusUi?.ctaLabel ?? 'Register Now'}
                     <ArrowRight size={15} />
                   </Link>
                 </div>
@@ -370,29 +435,46 @@ export default function LandingPage() {
                     <motion.div
                       key={event.id}
                       whileHover={{ x: 5 }}
-                      className="rounded-2xl border border-white/15 bg-slate-950/65 p-4 transition-all hover:border-indigo-300/40"
+                      className={`rounded-2xl border border-white/15 bg-slate-950/65 p-4 transition-all hover:border-indigo-300/40 ${
+                        getEventStatus(event) === 'completed' ? 'opacity-90' : ''
+                      }`}
                     >
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${getHomeStatusUi(getEventStatus(event)).badgeClass}`}>
+                        {getHomeStatusUi(getEventStatus(event)).label}
+                      </span>
                       <p className="text-sm font-semibold text-white">{event.title}</p>
-                      <p className="mt-1 text-xs text-slate-400">{formatEventDate(event.date)} • {event.venue}</p>
+                      {getEventStatus(event) === 'completed' && (
+                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-300">
+                          Event Completed
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatEventDate((event.startDateTime || event.date) ?? undefined)} •{' '}
+                        {getEventLocation(event)}
+                      </p>
                       <Link
-                        to={`/events/${event.id}`}
+                        to={getHomeStatusUi(getEventStatus(event)).ctaHref ?? `/events/${event.id}`}
                         className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-indigo-200 hover:text-white"
                       >
-                        Open Event
+                        {getHomeStatusUi(getEventStatus(event)).ctaLabel}
                         <ArrowRight size={13} />
                       </Link>
                     </motion.div>
                   ))
                 ) : (
                   <div className="rounded-2xl border border-white/15 bg-slate-950/65 p-5">
-                    <p className="text-sm text-slate-300">No more events in this category yet. Switch filters to explore more live events.</p>
+                    <p className="text-sm text-slate-300">
+                      No more events in this category yet. Switch filters to explore additional sessions.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
           ) : (
             <div className="rounded-2xl border border-white/15 bg-slate-950/65 p-6">
-              <p className="text-slate-300">No live events are available right now. Create an event to get started.</p>
+              <p className="text-slate-300">
+                No events are available right now. Create an event to get started.
+              </p>
             </div>
           )}
         </div>

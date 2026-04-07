@@ -4,11 +4,17 @@ import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createEvent } from '../lib/api';
 
-function getDefaultDateTimeLocal() {
+function getDefaultStartDateTimeLocal() {
   const date = new Date();
   date.setDate(date.getDate() + 7);
   date.setMinutes(0, 0, 0);
   return date.toISOString().slice(0, 16);
+}
+
+function getDefaultEndDateTimeLocal() {
+  const start = new Date(getDefaultStartDateTimeLocal());
+  start.setHours(start.getHours() + 3);
+  return start.toISOString().slice(0, 16);
 }
 
 export default function CreateEventPage() {
@@ -17,8 +23,9 @@ export default function CreateEventPage() {
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(getDefaultDateTimeLocal);
-  const [venue, setVenue] = useState('');
+  const [startDateTime, setStartDateTime] = useState(getDefaultStartDateTimeLocal);
+  const [endDateTime, setEndDateTime] = useState(getDefaultEndDateTimeLocal);
+  const [location, setLocation] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
   const [uploadedImageName, setUploadedImageName] = useState('');
@@ -26,6 +33,7 @@ export default function CreateEventPage() {
   const [imagePreviewError, setImagePreviewError] = useState(false);
   const [capacity, setCapacity] = useState('100');
   const [ticketPrice, setTicketPrice] = useState('0');
+  const [isHighlighted, setIsHighlighted] = useState(false);
   const [streamingProvider, setStreamingProvider] = useState<'none' | 'google_meet' | 'youtube' | 'zoom' | 'custom'>('none');
   const [streamingUrl, setStreamingUrl] = useState('');
   const imagePreviewSrc = uploadedImageDataUrl ?? imageUrl.trim();
@@ -77,6 +85,18 @@ export default function CreateEventPage() {
       return;
     }
 
+    const parsedStart = new Date(startDateTime);
+    if (Number.isNaN(parsedStart.getTime())) {
+      toast.error('Start date/time is invalid.');
+      return;
+    }
+
+    const parsedEnd = new Date(endDateTime);
+    if (Number.isNaN(parsedEnd.getTime()) || parsedEnd.getTime() <= parsedStart.getTime()) {
+      toast.error('End date/time must be after start date/time.');
+      return;
+    }
+
     setSaving(true);
     if (streamingProvider !== 'none' && streamingUrl.trim().length === 0) {
       toast.error('Streaming URL is required when a streaming provider is selected.');
@@ -94,11 +114,13 @@ export default function CreateEventPage() {
       const created = await createEvent({
         title: title.trim(),
         description: description.trim(),
-        date: new Date(date).toISOString(),
-        venue: venue.trim(),
+        location: location.trim(),
+        startDateTime: parsedStart.toISOString(),
+        endDateTime: parsedEnd.toISOString(),
         image: imagePreviewSrc,
         capacity: parsedCapacity,
         ticketPrice: Math.round(parsedTicketPrice * 100) / 100,
+        isHighlighted,
         streamingProvider: streamingProvider,
         streamingUrl: streamingUrl.trim(),
       });
@@ -144,14 +166,28 @@ export default function CreateEventPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label htmlFor="date" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
-                  Date & Time
+                <label htmlFor="startDateTime" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
+                  Start Date & Time
                 </label>
                 <input
-                  id="date"
+                  id="startDateTime"
                   type="datetime-local"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  value={startDateTime}
+                  onChange={(e) => setStartDateTime(e.target.value)}
+                  required
+                  className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="endDateTime" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
+                  End Date & Time
+                </label>
+                <input
+                  id="endDateTime"
+                  type="datetime-local"
+                  value={endDateTime}
+                  onChange={(e) => setEndDateTime(e.target.value)}
                   required
                   className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
@@ -172,6 +208,24 @@ export default function CreateEventPage() {
                 />
               </div>
 
+            </div>
+
+            <div>
+              <label htmlFor="location" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
+                Location
+              </label>
+              <input
+                id="location"
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                required
+                className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Main Hall, City Center"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="ticketPrice" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
                   Ticket Price (INR)
@@ -187,21 +241,15 @@ export default function CreateEventPage() {
                   className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-            </div>
-
-            <div>
-              <label htmlFor="venue" className="block text-sm font-bold uppercase tracking-wider text-slate-300 mb-2">
-                Venue
+              <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#111b31] px-4 py-3 text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={isHighlighted}
+                  onChange={(event) => setIsHighlighted(event.target.checked)}
+                  className="h-4 w-4 accent-indigo-500"
+                />
+                Feature this in Highlights after completion
               </label>
-              <input
-                id="venue"
-                type="text"
-                value={venue}
-                onChange={(e) => setVenue(e.target.value)}
-                required
-                className="w-full bg-[#111b31] border border-white/10 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Main Hall, City Center"
-              />
             </div>
 
             <div>

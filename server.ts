@@ -26,6 +26,7 @@ const UPI_PAYEE_VPA = process.env.UPI_PAYEE_VPA ?? "";
 const UPI_PAYEE_NAME = process.env.UPI_PAYEE_NAME ?? "Eventify";
 
 type UserRole = "admin" | "user";
+type EventStatus = "upcoming" | "ongoing" | "completed";
 
 interface UserProfileDocument {
   _id: string;
@@ -43,11 +44,19 @@ interface EventDocument {
   _id: string;
   title: string;
   description: string;
-  date: string;
-  venue: string;
+  location: string;
+  startDateTime: string;
+  endDateTime: string;
+  status: EventStatus;
+  attendeesCount: number;
+  isHighlighted: boolean;
+  statusOverride: boolean;
+  // Legacy aliases maintained for backward compatibility.
+  date?: string;
+  venue?: string;
   image: string;
   capacity: number;
-  registeredCount: number;
+  registeredCount?: number;
   ticketPrice: number;
   streamingProvider?: StreamingProvider;
   streamingUrl?: string;
@@ -85,8 +94,16 @@ const eventSchema = new mongoose.Schema<EventDocument>(
     _id: { type: String, required: true },
     title: { type: String, required: true },
     description: { type: String, required: true },
-    date: { type: String, required: true },
-    venue: { type: String, required: true },
+    location: { type: String, required: true },
+    startDateTime: { type: String, required: true },
+    endDateTime: { type: String, required: true },
+    status: { type: String, enum: ["upcoming", "ongoing", "completed"], default: "upcoming" },
+    attendeesCount: { type: Number, default: 0 },
+    isHighlighted: { type: Boolean, default: false },
+    statusOverride: { type: Boolean, default: false },
+    // Legacy aliases maintained for backward compatibility.
+    date: { type: String, required: false },
+    venue: { type: String, required: false },
     image: { type: String, required: true },
     capacity: { type: Number, required: true },
     registeredCount: { type: Number, default: 0 },
@@ -136,6 +153,13 @@ const DEFAULT_EVENTS: EventDocument[] = [
     title: "TechX 2026: The AI Revolution",
     description:
       "Join industry leaders for a deep dive into the future of artificial intelligence and its impact on society.",
+    location: "Grand Innovation Hall, Silicon Valley",
+    startDateTime: new Date(Date.now() + 86400000 * 7).toISOString(),
+    endDateTime: new Date(Date.now() + 86400000 * 7 + 3 * 60 * 60 * 1000).toISOString(),
+    status: "upcoming",
+    attendeesCount: 120,
+    isHighlighted: false,
+    statusOverride: false,
     date: new Date(Date.now() + 86400000 * 7).toISOString(),
     venue: "Grand Innovation Hall, Silicon Valley",
     image: "https://picsum.photos/seed/tech/800/600",
@@ -148,6 +172,13 @@ const DEFAULT_EVENTS: EventDocument[] = [
     title: "Design Systems Summit",
     description:
       "A gathering of world-class designers to discuss the evolution of design systems and user experience.",
+    location: "The Creative Hub, New York",
+    startDateTime: new Date(Date.now() + 86400000 * 14).toISOString(),
+    endDateTime: new Date(Date.now() + 86400000 * 14 + 3 * 60 * 60 * 1000).toISOString(),
+    status: "upcoming",
+    attendeesCount: 85,
+    isHighlighted: false,
+    statusOverride: false,
     date: new Date(Date.now() + 86400000 * 14).toISOString(),
     venue: "The Creative Hub, New York",
     image: "https://picsum.photos/seed/design/800/600",
@@ -160,6 +191,13 @@ const DEFAULT_EVENTS: EventDocument[] = [
     title: "Cloud Native Day",
     description:
       "Everything you need to know about Kubernetes, serverless, and the modern cloud infrastructure.",
+    location: "Tech Park, London",
+    startDateTime: new Date(Date.now() + 86400000 * 21).toISOString(),
+    endDateTime: new Date(Date.now() + 86400000 * 21 + 3 * 60 * 60 * 1000).toISOString(),
+    status: "upcoming",
+    attendeesCount: 210,
+    isHighlighted: true,
+    statusOverride: false,
     date: new Date(Date.now() + 86400000 * 21).toISOString(),
     venue: "Tech Park, London",
     image: "https://picsum.photos/seed/cloud/800/600",
@@ -168,6 +206,112 @@ const DEFAULT_EVENTS: EventDocument[] = [
     ticketPrice: 999,
   },
 ];
+
+const MIN_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
+const MAX_EVENT_DURATION_MS = 4 * 60 * 60 * 1000;
+const FALLBACK_EVENT_DURATION_MS = 3 * 60 * 60 * 1000;
+
+function getDefaultEventDurationMs() {
+  const configured = Number(process.env.DEFAULT_EVENT_DURATION_MS ?? FALLBACK_EVENT_DURATION_MS);
+  if (!Number.isFinite(configured)) {
+    return FALLBACK_EVENT_DURATION_MS;
+  }
+  return Math.min(Math.max(configured, MIN_EVENT_DURATION_MS), MAX_EVENT_DURATION_MS);
+}
+
+function parseDateInput(value?: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function resolveEventWindow(input: {
+  startDateTime?: string;
+  endDateTime?: string;
+  date?: string;
+  fallbackStartDateTime?: string;
+  fallbackEndDateTime?: string;
+}) {
+  const now = new Date();
+  const start =
+    parseDateInput(input.startDateTime) ||
+    parseDateInput(input.date) ||
+    parseDateInput(input.fallbackStartDateTime) ||
+    now;
+  const defaultEnd = new Date(start.getTime() + getDefaultEventDurationMs());
+  const parsedEnd = parseDateInput(input.endDateTime) || parseDateInput(input.fallbackEndDateTime);
+  const end = parsedEnd && parsedEnd.getTime() > start.getTime() ? parsedEnd : defaultEnd;
+
+  return {
+    startDateTime: start.toISOString(),
+    endDateTime: end.toISOString(),
+  };
+}
+
+function deriveEventStatus(now: Date, startDateTime: Date, endDateTime: Date): EventStatus {
+  if (now.getTime() < startDateTime.getTime()) {
+    return "upcoming";
+  }
+  if (now.getTime() <= endDateTime.getTime()) {
+    return "ongoing";
+  }
+  return "completed";
+}
+
+function normalizeEventState(doc: EventDocument, now = new Date()) {
+  const location = (doc.location ?? doc.venue ?? "").trim() || "Location TBA";
+  const { startDateTime, endDateTime } = resolveEventWindow({
+    startDateTime: doc.startDateTime,
+    endDateTime: doc.endDateTime,
+    date: doc.date,
+  });
+
+  const parsedStart = new Date(startDateTime);
+  const parsedEnd = new Date(endDateTime);
+  const autoStatus = deriveEventStatus(now, parsedStart, parsedEnd);
+  const statusOverride = Boolean((doc as Partial<EventDocument>).statusOverride);
+  const resolvedStatus = statusOverride ? doc.status ?? autoStatus : autoStatus;
+
+  const attendeesCount =
+    typeof doc.attendeesCount === "number"
+      ? doc.attendeesCount
+      : typeof doc.registeredCount === "number"
+        ? doc.registeredCount
+        : 0;
+  const registeredCount =
+    typeof doc.registeredCount === "number" ? doc.registeredCount : attendeesCount;
+  const isHighlighted = Boolean(doc.isHighlighted);
+
+  const patch: Partial<EventDocument> = {};
+  if (doc.location !== location) patch.location = location;
+  if (doc.startDateTime !== startDateTime) patch.startDateTime = startDateTime;
+  if (doc.endDateTime !== endDateTime) patch.endDateTime = endDateTime;
+  if (doc.date !== startDateTime) patch.date = startDateTime;
+  if (doc.venue !== location) patch.venue = location;
+  if (doc.status !== resolvedStatus) patch.status = resolvedStatus;
+  if (doc.statusOverride !== statusOverride) patch.statusOverride = statusOverride;
+  if (doc.attendeesCount !== attendeesCount) patch.attendeesCount = attendeesCount;
+  if (doc.registeredCount !== registeredCount) patch.registeredCount = registeredCount;
+  if (doc.isHighlighted !== isHighlighted) patch.isHighlighted = isHighlighted;
+
+  return {
+    patch,
+    normalized: {
+      ...doc,
+      location,
+      startDateTime,
+      endDateTime,
+      status: resolvedStatus,
+      statusOverride,
+      attendeesCount,
+      registeredCount,
+      isHighlighted,
+      date: startDateTime,
+      venue: location,
+    } satisfies EventDocument,
+  };
+}
 
 function mapProfile(doc: UserProfileDocument) {
   return {
@@ -182,19 +326,27 @@ function mapProfile(doc: UserProfileDocument) {
 }
 
 function mapEvent(doc: EventDocument) {
-  const maybeTicketPrice = (doc as unknown as { ticketPrice?: number }).ticketPrice;
+  const { normalized } = normalizeEventState(doc);
+  const maybeTicketPrice = (normalized as unknown as { ticketPrice?: number }).ticketPrice;
   return {
-    id: doc._id,
-    title: doc.title,
-    description: doc.description,
-    date: doc.date,
-    venue: doc.venue,
-    image: doc.image,
-    capacity: doc.capacity,
-    registeredCount: doc.registeredCount,
+    id: normalized._id,
+    title: normalized.title,
+    description: normalized.description,
+    location: normalized.location,
+    startDateTime: normalized.startDateTime,
+    endDateTime: normalized.endDateTime,
+    status: normalized.status,
+    attendeesCount: normalized.attendeesCount,
+    isHighlighted: normalized.isHighlighted,
+    // Legacy aliases for existing frontend compatibility.
+    date: normalized.startDateTime,
+    venue: normalized.location,
+    image: normalized.image,
+    capacity: normalized.capacity,
+    registeredCount: normalized.attendeesCount,
     ticketPrice: typeof maybeTicketPrice === "number" ? maybeTicketPrice : 0,
-    streamingProvider: doc.streamingProvider || 'none',
-    streamingUrl: doc.streamingUrl || '',
+    streamingProvider: normalized.streamingProvider || "none",
+    streamingUrl: normalized.streamingUrl || "",
   };
 }
 
@@ -320,41 +472,53 @@ async function seedDefaultEvents() {
   }
 }
 
-async function purgeExpiredEvents() {
-  const nowIso = new Date().toISOString();
-  const expiredEventIds = (await EventModel.find({ date: { $lt: nowIso } }, { _id: 1 }).lean()).map(
-    (event) => (event as { _id: string })._id
-  );
-
-  if (expiredEventIds.length === 0) {
-    return { deletedEvents: 0, deletedRegistrations: 0 };
+async function syncEventStatuses() {
+  const events = await EventModel.find({}).lean();
+  if (events.length === 0) {
+    return { checked: 0, updated: 0 };
   }
 
-  const [deletedEvents, deletedRegistrations] = await Promise.all([
-    EventModel.deleteMany({ _id: { $in: expiredEventIds } }),
-    RegistrationModel.deleteMany({ eventId: { $in: expiredEventIds } }),
-  ]);
+  const operations: mongoose.AnyBulkWriteOperation<EventDocument>[] = [];
+  for (const rawEvent of events) {
+    const event = rawEvent as EventDocument;
+    const { patch } = normalizeEventState(event);
+    if (Object.keys(patch).length === 0) {
+      continue;
+    }
+    operations.push({
+      updateOne: {
+        filter: { _id: event._id },
+        update: { $set: patch },
+      },
+    });
+  }
 
+  if (operations.length === 0) {
+    return { checked: events.length, updated: 0 };
+  }
+
+  const result = await EventModel.bulkWrite(operations);
   return {
-    deletedEvents: deletedEvents.deletedCount ?? 0,
-    deletedRegistrations: deletedRegistrations.deletedCount ?? 0,
+    checked: events.length,
+    updated: result.modifiedCount ?? 0,
   };
 }
 
 async function startServer() {
   await connectToMongoDB();
   await seedDefaultEvents();
-  await purgeExpiredEvents();
+  await syncEventStatuses();
 
   const app = express();
-  const cleanupIntervalMs = Number(process.env.EXPIRED_EVENT_CLEANUP_MS ?? 60_000);
-  const safeCleanupIntervalMs = Number.isFinite(cleanupIntervalMs) && cleanupIntervalMs > 0 ? cleanupIntervalMs : 60_000;
-  const cleanupTimer = setInterval(() => {
-    void purgeExpiredEvents().catch((error) => {
-      console.error("Failed to purge expired events:", error);
+  const statusSyncIntervalMs = Number(process.env.EVENT_STATUS_SYNC_MS ?? 60_000);
+  const safeStatusSyncIntervalMs =
+    Number.isFinite(statusSyncIntervalMs) && statusSyncIntervalMs > 0 ? statusSyncIntervalMs : 60_000;
+  const statusSyncTimer = setInterval(() => {
+    void syncEventStatuses().catch((error) => {
+      console.error("Failed to sync event statuses:", error);
     });
-  }, safeCleanupIntervalMs);
-  cleanupTimer.unref();
+  }, safeStatusSyncIntervalMs);
+  statusSyncTimer.unref();
 
   app.use(express.json({ limit: "8mb" }));
   app.use(cors());
@@ -367,8 +531,8 @@ async function startServer() {
   });
 
   app.get("/api/events", async (_req, res) => {
-    await purgeExpiredEvents();
-    const events = await EventModel.find({}).sort({ date: 1 }).lean();
+    await syncEventStatuses();
+    const events = await EventModel.find({}).sort({ startDateTime: 1, date: 1 }).lean();
     res.json(events.map((event) => mapEvent(event as EventDocument)));
   });
 
@@ -377,16 +541,25 @@ async function startServer() {
 
     const title = (payload.title ?? "").trim();
     const description = (payload.description ?? "").trim();
-    const venue = (payload.venue ?? "").trim();
+    const location = (payload.location ?? payload.venue ?? "").trim();
     const image = (payload.image ?? "").trim();
     const capacity = Number(payload.capacity);
-    const date = (payload.date ?? "").trim();
+    const startDateTimeInput = (payload.startDateTime ?? payload.date ?? "").trim();
+    const endDateTimeInput = (payload.endDateTime ?? "").trim();
     const ticketPriceInput = (payload as Partial<EventDocument> & { ticketPrice?: number }).ticketPrice;
     const ticketPrice =
       ticketPriceInput === undefined || ticketPriceInput === null ? 0 : Number(ticketPriceInput);
+    const rawAttendeesCount =
+      (payload as Partial<EventDocument> & { attendeesCount?: number; registeredCount?: number })
+        .attendeesCount ??
+      (payload as Partial<EventDocument> & { attendeesCount?: number; registeredCount?: number })
+        .registeredCount ??
+      0;
+    const attendeesCount = Number(rawAttendeesCount);
+    const isHighlighted = Boolean(payload.isHighlighted);
 
-    if (!title || !description || !venue || !date) {
-      res.status(400).json({ message: "title, description, venue and date are required" });
+    if (!title || !description || !location || !startDateTimeInput) {
+      res.status(400).json({ message: "title, description, location and startDateTime are required" });
       return;
     }
 
@@ -400,9 +573,18 @@ async function startServer() {
       return;
     }
 
-    const parsedDate = new Date(date);
-    if (Number.isNaN(parsedDate.valueOf())) {
-      res.status(400).json({ message: "date must be a valid date string" });
+    if (Number.isNaN(attendeesCount) || attendeesCount < 0) {
+      res.status(400).json({ message: "attendeesCount must be a non-negative number" });
+      return;
+    }
+
+    const { startDateTime, endDateTime } = resolveEventWindow({
+      startDateTime: startDateTimeInput,
+      endDateTime: endDateTimeInput,
+    });
+    const parsedStartDateTime = new Date(startDateTime);
+    if (Number.isNaN(parsedStartDateTime.valueOf())) {
+      res.status(400).json({ message: "startDateTime must be a valid date string" });
       return;
     }
 
@@ -417,15 +599,29 @@ async function startServer() {
       return;
     }
 
+    const providedStatus = payload.status;
+    const shouldOverrideStatus = Boolean(
+      providedStatus && ["upcoming", "ongoing", "completed"].includes(providedStatus)
+    );
+    const autoStatus = deriveEventStatus(new Date(), parsedStartDateTime, new Date(endDateTime));
+    const status = shouldOverrideStatus ? (providedStatus as EventStatus) : autoStatus;
+
     const newEvent = await EventModel.create({
       _id: createEventId(),
       title,
       description,
-      date: parsedDate.toISOString(),
-      venue,
+      location,
+      startDateTime,
+      endDateTime,
+      status,
+      statusOverride: shouldOverrideStatus,
+      attendeesCount,
+      isHighlighted,
+      date: startDateTime,
+      venue: location,
       image: image || `https://picsum.photos/seed/${Date.now()}/800/600`,
       capacity,
-      registeredCount: 0,
+      registeredCount: attendeesCount,
       ticketPrice: Math.round(ticketPrice * 100) / 100,
       streamingProvider,
       streamingUrl,
@@ -435,7 +631,7 @@ async function startServer() {
   });
 
   app.get("/api/events/:id", async (req, res) => {
-    await purgeExpiredEvents();
+    await syncEventStatuses();
     const event = await EventModel.findById(req.params.id).lean();
     if (!event) {
       res.status(404).json({ message: "Event not found" });
@@ -454,11 +650,19 @@ async function startServer() {
       return;
     }
 
+    const normalizedExisting = normalizeEventState(existing as EventDocument).normalized;
     const title = (payload.title ?? existing.title ?? "").trim();
     const description = (payload.description ?? existing.description ?? "").trim();
-    const venue = (payload.venue ?? existing.venue ?? "").trim();
+    const location = (payload.location ?? payload.venue ?? normalizedExisting.location ?? "").trim();
     const image = (payload.image ?? existing.image ?? "").trim();
-    const date = (payload.date ?? existing.date ?? "").trim();
+    const startDateTimeInput = (
+      payload.startDateTime ??
+      payload.date ??
+      normalizedExisting.startDateTime
+    ).trim();
+    const endDateTimeInput = (
+      payload.endDateTime ?? normalizedExisting.endDateTime
+    ).trim();
     const capacity =
       payload.capacity === undefined || payload.capacity === null
         ? Number(existing.capacity)
@@ -466,9 +670,21 @@ async function startServer() {
     const ticketPriceInput =
       (payload as Partial<EventDocument> & { ticketPrice?: number }).ticketPrice ?? existing.ticketPrice ?? 0;
     const ticketPrice = Number(ticketPriceInput);
+    const rawAttendeesCount =
+      (payload as Partial<EventDocument> & { attendeesCount?: number; registeredCount?: number })
+        .attendeesCount ??
+      (payload as Partial<EventDocument> & { attendeesCount?: number; registeredCount?: number })
+        .registeredCount ??
+      normalizedExisting.attendeesCount;
+    const attendeesCount = Number(rawAttendeesCount);
+    const isHighlighted =
+      payload.isHighlighted === undefined ? normalizedExisting.isHighlighted : Boolean(payload.isHighlighted);
+    const clearStatusOverride = Boolean(
+      (payload as Partial<EventDocument> & { clearStatusOverride?: boolean }).clearStatusOverride
+    );
 
-    if (!title || !description || !venue || !date) {
-      res.status(400).json({ message: "title, description, venue and date are required" });
+    if (!title || !description || !location || !startDateTimeInput) {
+      res.status(400).json({ message: "title, description, location and startDateTime are required" });
       return;
     }
 
@@ -482,9 +698,20 @@ async function startServer() {
       return;
     }
 
-    const parsedDate = new Date(date);
-    if (Number.isNaN(parsedDate.valueOf())) {
-      res.status(400).json({ message: "date must be a valid date string" });
+    if (Number.isNaN(attendeesCount) || attendeesCount < 0) {
+      res.status(400).json({ message: "attendeesCount must be a non-negative number" });
+      return;
+    }
+
+    const { startDateTime, endDateTime } = resolveEventWindow({
+      startDateTime: startDateTimeInput,
+      endDateTime: endDateTimeInput,
+      fallbackStartDateTime: normalizedExisting.startDateTime,
+      fallbackEndDateTime: normalizedExisting.endDateTime,
+    });
+    const parsedStartDateTime = new Date(startDateTime);
+    if (Number.isNaN(parsedStartDateTime.valueOf())) {
+      res.status(400).json({ message: "startDateTime must be a valid date string" });
       return;
     }
 
@@ -500,21 +727,79 @@ async function startServer() {
       return;
     }
 
+    const now = new Date();
+    const providedStatus = payload.status;
+    const validProvidedStatus =
+      providedStatus && ["upcoming", "ongoing", "completed"].includes(providedStatus)
+        ? (providedStatus as EventStatus)
+        : undefined;
+
+    const autoStatus = deriveEventStatus(now, parsedStartDateTime, new Date(endDateTime));
+    const statusOverride =
+      clearStatusOverride
+        ? false
+        : validProvidedStatus
+          ? true
+          : normalizedExisting.statusOverride;
+    const status = statusOverride
+      ? validProvidedStatus ?? normalizedExisting.status
+      : autoStatus;
+
     const updated = await EventModel.findByIdAndUpdate(
       req.params.id,
       {
         title,
         description,
-        venue,
+        location,
         image: image || "https://picsum.photos/seed/event/800/600",
-        date: parsedDate.toISOString(),
+        startDateTime,
+        endDateTime,
+        status,
+        statusOverride,
+        attendeesCount,
+        isHighlighted,
+        date: startDateTime,
+        venue: location,
         capacity,
+        registeredCount: attendeesCount,
         ticketPrice: Math.round(ticketPrice * 100) / 100,
         streamingProvider,
         streamingUrl: streamingProvider === 'none' ? '' : streamingUrl,
       },
       { new: true }
     ).lean();
+
+    res.json(mapEvent(updated as EventDocument));
+  });
+
+  app.patch("/api/events/:id/mark-completed", async (req, res) => {
+    const existing = await EventModel.findById(req.params.id).lean();
+    if (!existing) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
+
+    const normalizedExisting = normalizeEventState(existing as EventDocument).normalized;
+    const nowIso = new Date().toISOString();
+    const endDateTime =
+      new Date(normalizedExisting.endDateTime).getTime() > Date.now()
+        ? nowIso
+        : normalizedExisting.endDateTime;
+
+    const updated = await EventModel.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: "completed",
+        statusOverride: true,
+        endDateTime,
+      },
+      { new: true }
+    ).lean();
+
+    if (!updated) {
+      res.status(404).json({ message: "Event not found" });
+      return;
+    }
 
     res.json(mapEvent(updated as EventDocument));
   });
@@ -592,7 +877,7 @@ async function startServer() {
   });
 
   app.post("/api/registrations", async (req, res) => {
-    await purgeExpiredEvents();
+    await syncEventStatuses();
     const payload = req.body as Partial<RegistrationDocument>;
     const { uid, eventId, userEmail, userName } = payload;
 
@@ -601,9 +886,14 @@ async function startServer() {
       return;
     }
 
-    const event = await EventModel.findById(eventId).lean();
-    if (!event) {
+    const rawEvent = await EventModel.findById(eventId).lean();
+    if (!rawEvent) {
       res.status(404).json({ message: "Event not found" });
+      return;
+    }
+    const event = normalizeEventState(rawEvent as EventDocument).normalized;
+    if (event.status === "completed") {
+      res.status(409).json({ message: "This event has ended." });
       return;
     }
 
@@ -615,7 +905,7 @@ async function startServer() {
     }
 
     const currentCount = await RegistrationModel.countDocuments({ eventId });
-    const baselineCount = Math.max(currentCount, event.registeredCount);
+    const baselineCount = Math.max(currentCount, event.attendeesCount);
     if (baselineCount >= event.capacity) {
       res.status(409).json({ message: "This event is full." });
       return;
@@ -634,7 +924,10 @@ async function startServer() {
       qrCode: payload.qrCode ?? registrationId,
     });
 
-    await EventModel.findByIdAndUpdate(eventId, { registeredCount: baselineCount + 1 });
+    await EventModel.findByIdAndUpdate(eventId, {
+      attendeesCount: baselineCount + 1,
+      registeredCount: baselineCount + 1,
+    });
 
     res.status(201).json(mapRegistration(newRegistration.toObject() as RegistrationDocument));
   });
@@ -649,6 +942,7 @@ async function startServer() {
 
     const remainingRegistrations = await RegistrationModel.countDocuments({ eventId: deleted.eventId });
     await EventModel.findByIdAndUpdate(deleted.eventId, {
+      attendeesCount: Math.max(remainingRegistrations, 0),
       registeredCount: Math.max(remainingRegistrations, 0),
     });
 
@@ -656,7 +950,7 @@ async function startServer() {
   });
 
   app.post("/api/payments/initiate", async (req, res) => {
-    await purgeExpiredEvents();
+    await syncEventStatuses();
     const payload = req.body as { uid?: string; eventId?: string };
     const uid = payload.uid?.trim() ?? "";
     const eventId = payload.eventId?.trim() ?? "";
@@ -666,9 +960,14 @@ async function startServer() {
       return;
     }
 
-    const event = await EventModel.findById(eventId).lean();
-    if (!event) {
+    const rawEvent = await EventModel.findById(eventId).lean();
+    if (!rawEvent) {
       res.status(404).json({ message: "Event not found" });
+      return;
+    }
+    const event = normalizeEventState(rawEvent as EventDocument).normalized;
+    if (event.status === "completed") {
+      res.status(409).json({ message: "This event has ended." });
       return;
     }
 
@@ -679,7 +978,7 @@ async function startServer() {
     }
 
     const currentCount = await RegistrationModel.countDocuments({ eventId });
-    const baselineCount = Math.max(currentCount, event.registeredCount);
+    const baselineCount = Math.max(currentCount, event.attendeesCount);
     if (baselineCount >= event.capacity) {
       res.status(409).json({ message: "This event is full." });
       return;
@@ -861,10 +1160,10 @@ async function startServer() {
   });
 
   app.get("/api/admin/overview", async (_req, res) => {
-    await purgeExpiredEvents();
+    await syncEventStatuses();
     const [registrations, events] = await Promise.all([
       RegistrationModel.find({}).sort({ registeredAt: -1 }).lean(),
-      EventModel.find({}).sort({ date: 1 }).lean(),
+      EventModel.find({}).sort({ startDateTime: 1, date: 1 }).lean(),
     ]);
 
     res.json({

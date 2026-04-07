@@ -9,16 +9,24 @@ export interface UserProfile {
 }
 
 export type StreamingProvider = 'google_meet' | 'youtube' | 'zoom' | 'custom' | 'none';
+export type EventStatus = 'upcoming' | 'ongoing' | 'completed';
 
 export interface Event {
   id: string;
   title: string;
   description: string;
-  date: string;
-  venue: string;
+  location: string;
+  startDateTime: string;
+  endDateTime: string;
+  status: EventStatus;
+  attendeesCount: number;
+  isHighlighted: boolean;
+  // Legacy aliases maintained while pages migrate.
+  date?: string;
+  venue?: string;
   image: string;
   capacity: number;
-  registeredCount: number;
+  registeredCount?: number;
   ticketPrice: number;
   schedule?: { time: string; activity: string }[];
   speakers?: { name: string; role: string; image: string }[];
@@ -29,8 +37,16 @@ export interface Event {
 export interface CreateEventInput {
   title: string;
   description: string;
-  date: string;
-  venue: string;
+  location: string;
+  startDateTime: string;
+  endDateTime?: string;
+  status?: EventStatus;
+  attendeesCount?: number;
+  isHighlighted?: boolean;
+  clearStatusOverride?: boolean;
+  // Legacy aliases accepted by backend.
+  date?: string;
+  venue?: string;
   image?: string;
   capacity: number;
   ticketPrice?: number;
@@ -121,6 +137,12 @@ export function updateEvent(id: string, payload: Partial<CreateEventInput>) {
 export function deleteEvent(id: string) {
   return apiRequest<Event>(`/api/events/${id}`, {
     method: "DELETE",
+  });
+}
+
+export function markEventAsCompleted(id: string) {
+  return apiRequest<Event>(`/api/events/${id}/mark-completed`, {
+    method: "PATCH",
   });
 }
 

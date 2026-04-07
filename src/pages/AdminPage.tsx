@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import {
   Event,
+  EventStatus,
   Registration,
   UserProfile,
   createEvent,
@@ -43,11 +44,18 @@ import {
   getAdminOverview,
   getUnverifiedUsers,
   getVerifiedUsers,
+  markEventAsCompleted,
   markRegistrationAttendance,
   resendUserVerification,
   updateEvent,
   verifyUser,
 } from '../lib/api';
+import {
+  formatEventDateTime,
+  getEventLocation,
+  getEventStartDate,
+  getEventStatus,
+} from '../lib/eventLifecycle';
 
 type DetectedBarcode = {
   rawValue?: string;
@@ -68,11 +76,14 @@ type AuditTone = 'info' | 'success' | 'warning';
 type EventFormState = {
   title: string;
   description: string;
-  date: string;
-  venue: string;
+  startDateTime: string;
+  endDateTime: string;
+  location: string;
   image: string;
   capacity: string;
   ticketPrice: string;
+  isHighlighted: boolean;
+  status: 'auto' | EventStatus;
 };
 
 type AuditLog = {
@@ -99,11 +110,14 @@ const PAGE_SIZE = 8;
 const defaultEventForm: EventFormState = {
   title: '',
   description: '',
-  date: '',
-  venue: '',
+  startDateTime: '',
+  endDateTime: '',
+  location: '',
   image: '',
   capacity: '100',
   ticketPrice: '0',
+  isHighlighted: false,
+  status: 'auto',
 };
 
 const cardEnter = {
@@ -251,6 +265,7 @@ export default function AdminPage() {
   const [markingRegistrationId, setMarkingRegistrationId] = useState<string | null>(null);
   const [deletingRegistrationId, setDeletingRegistrationId] = useState<string | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [markingEventCompletedId, setMarkingEventCompletedId] = useState<string | null>(null);
 
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventModalMode, setEventModalMode] = useState<'create' | 'edit'>('create');
@@ -675,14 +690,19 @@ export default function AdminPage() {
   const openEditEventModal = (event: Event) => {
     setEventModalMode('edit');
     setEditingEventId(event.id);
+    const startDate = getEventStartDate(event);
+    const endDate = event.endDateTime ? new Date(event.endDateTime) : null;
     setEventForm({
       title: event.title,
       description: event.description,
-      date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
-      venue: event.venue,
+      startDateTime: startDate ? startDate.toISOString().slice(0, 16) : '',
+      endDateTime: endDate && !Number.isNaN(endDate.getTime()) ? endDate.toISOString().slice(0, 16) : '',
+      location: getEventLocation(event),
       image: event.image,
       capacity: String(event.capacity),
       ticketPrice: String(event.ticketPrice),
+      isHighlighted: Boolean(event.isHighlighted),
+      status: event.status ?? 'auto',
     });
     setShowEventModal(true);
   };
@@ -692,14 +712,15 @@ export default function AdminPage() {
 
     const title = eventForm.title.trim();
     const description = eventForm.description.trim();
-    const venue = eventForm.venue.trim();
-    const date = eventForm.date.trim();
+    const location = eventForm.location.trim();
+    const startDateTime = eventForm.startDateTime.trim();
+    const endDateTime = eventForm.endDateTime.trim();
     const image = eventForm.image.trim();
     const capacity = Number(eventForm.capacity);
     const ticketPrice = Number(eventForm.ticketPrice);
 
-    if (!title || !description || !venue || !date) {
-      toast.error('Please fill title, description, venue, and date.');
+    if (!title || !description || !location || !startDateTime) {
+      toast.error('Please fill title, description, location, and start date/time.');
       return;
     }
 
@@ -713,18 +734,40 @@ export default function AdminPage() {
       return;
     }
 
+    const parsedStart = new Date(startDateTime);
+    if (Number.isNaN(parsedStart.getTime())) {
+      toast.error('Start date/time is invalid.');
+      return;
+    }
+    const parsedEnd = endDateTime ? new Date(endDateTime) : null;
+    if (parsedEnd && Number.isNaN(parsedEnd.getTime())) {
+      toast.error('End date/time is invalid.');
+      return;
+    }
+    if (parsedEnd && parsedEnd.getTime() <= parsedStart.getTime()) {
+      toast.error('End date/time must be after start date/time.');
+      return;
+    }
+
     setSavingEvent(true);
     try {
+      const payload = {
+        title,
+        description,
+        location,
+        startDateTime: parsedStart.toISOString(),
+        endDateTime: parsedEnd ? parsedEnd.toISOString() : undefined,
+        image,
+        capacity,
+        ticketPrice,
+        isHighlighted: eventForm.isHighlighted,
+        ...(eventForm.status !== 'auto'
+          ? { status: eventForm.status }
+          : { clearStatusOverride: true }),
+      };
+
       if (eventModalMode === 'edit' && editingEventId) {
-        const updated = await updateEvent(editingEventId, {
-          title,
-          description,
-          venue,
-          date: new Date(date).toISOString(),
-          image,
-          capacity,
-          ticketPrice,
-        });
+        const updated = await updateEvent(editingEventId, payload);
 
         setEvents((previous) => previous.map((item) => (item.id === updated.id ? updated : item)));
         setRegistrations((previous) =>
@@ -737,16 +780,13 @@ export default function AdminPage() {
         addAuditLog('Edit Event', `${updated.title} updated.`, 'info');
         toast.success('Event updated successfully.');
       } else {
-        const created = await createEvent({
-          title,
-          description,
-          venue,
-          date: new Date(date).toISOString(),
-          image,
-          capacity,
-          ticketPrice,
-        });
-        setEvents((previous) => [...previous, created].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        const created = await createEvent(payload);
+        setEvents((previous) =>
+          [...previous, created].sort(
+            (a, b) =>
+              (getEventStartDate(a)?.getTime() ?? 0) - (getEventStartDate(b)?.getTime() ?? 0)
+          )
+        );
         addAuditLog('Create Event', `${created.title} created.`, 'success');
         toast.success('Event created successfully.');
       }
@@ -757,6 +797,25 @@ export default function AdminPage() {
       toast.error('Failed to save event.');
     } finally {
       setSavingEvent(false);
+    }
+  };
+
+  const handleMarkEventCompleted = async (event: Event) => {
+    if (getEventStatus(event) === 'completed') return;
+    const confirm = window.confirm(`Mark "${event.title}" as completed now?`);
+    if (!confirm) return;
+
+    setMarkingEventCompletedId(event.id);
+    try {
+      const updated = await markEventAsCompleted(event.id);
+      setEvents((previous) => previous.map((item) => (item.id === updated.id ? updated : item)));
+      addAuditLog('Mark Event Completed', `${updated.title} marked as completed.`, 'warning');
+      toast.success('Event marked as completed.');
+    } catch (error) {
+      console.error('Failed to mark event as completed:', error);
+      toast.error('Failed to mark event as completed.');
+    } finally {
+      setMarkingEventCompletedId(null);
     }
   };
 
@@ -1396,9 +1455,30 @@ export default function AdminPage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-white">{event.title}</p>
-                        <p className="truncate text-xs text-slate-300">{event.venue} • {formatDateTime(event.date)}</p>
+                        <p className="truncate text-xs text-slate-300">
+                          {getEventLocation(event)} • {formatEventDateTime(getEventStartDate(event))}
+                        </p>
+                        <span
+                          className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
+                            getEventStatus(event) === 'completed'
+                              ? 'bg-slate-500/30 text-slate-100'
+                              : getEventStatus(event) === 'ongoing'
+                                ? 'bg-emerald-500/20 text-emerald-200'
+                                : 'bg-blue-500/20 text-blue-200'
+                          }`}
+                        >
+                          {getEventStatus(event)}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkEventCompleted(event)}
+                          disabled={getEventStatus(event) === 'completed' || markingEventCompletedId === event.id}
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-300/30 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {markingEventCompletedId === event.id ? 'Updating...' : 'Mark as Completed'}
+                        </button>
                         <button
                           type="button"
                           onClick={() => openEditEventModal(event)}
@@ -1558,16 +1638,39 @@ export default function AdminPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="datetime-local"
-                    value={eventForm.date}
-                    onChange={(event) => setEventForm((current) => ({ ...current, date: event.target.value }))}
+                    value={eventForm.startDateTime}
+                    onChange={(event) => setEventForm((current) => ({ ...current, startDateTime: event.target.value }))}
                     className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
                   />
                   <input
-                    value={eventForm.venue}
-                    onChange={(event) => setEventForm((current) => ({ ...current, venue: event.target.value }))}
-                    placeholder="Venue"
+                    type="datetime-local"
+                    value={eventForm.endDateTime}
+                    onChange={(event) => setEventForm((current) => ({ ...current, endDateTime: event.target.value }))}
+                    className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    value={eventForm.location}
+                    onChange={(event) => setEventForm((current) => ({ ...current, location: event.target.value }))}
+                    placeholder="Location"
                     className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
                   />
+                  <select
+                    value={eventForm.status}
+                    onChange={(event) =>
+                      setEventForm((current) => ({
+                        ...current,
+                        status: event.target.value as EventFormState['status'],
+                      }))
+                    }
+                    className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
+                  >
+                    <option value="auto">Auto status (time-based)</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="ongoing">Live / Ongoing</option>
+                    <option value="completed">Completed</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <input
@@ -1594,6 +1697,17 @@ export default function AdminPage() {
                   placeholder="Image URL (optional)"
                   className="w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/60"
                 />
+                <label className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2.5 text-sm text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={eventForm.isHighlighted}
+                    onChange={(event) =>
+                      setEventForm((current) => ({ ...current, isHighlighted: event.target.checked }))
+                    }
+                    className="h-4 w-4 accent-indigo-500"
+                  />
+                  Show on highlights once event is completed
+                </label>
 
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button

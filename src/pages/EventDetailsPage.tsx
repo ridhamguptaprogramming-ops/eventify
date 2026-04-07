@@ -6,6 +6,14 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { Event, checkRegistration, createRegistration, getEventById, initiatePayment, PaymentIntent } from '../lib/api';
+import {
+  formatEventDateTime,
+  getEventAttendeesCount,
+  getEventEndDate,
+  getEventLocation,
+  getEventStartDate,
+  getEventStatus,
+} from '../lib/eventLifecycle';
 
 export default function EventDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -86,6 +94,10 @@ export default function EventDetailsPage() {
     }
 
     if (!id || !event) return;
+    if (getEventStatus(event) === 'completed') {
+      toast.error('This event has already ended.');
+      return;
+    }
 
     setRegistering(true);
     try {
@@ -100,9 +112,11 @@ export default function EventDetailsPage() {
       setIsRegistered(true);
       setEvent((prev) => {
         if (!prev) return prev;
+        const updatedCount = getEventAttendeesCount(prev) + 1;
         return {
           ...prev,
-          registeredCount: prev.registeredCount + 1,
+          attendeesCount: updatedCount,
+          registeredCount: updatedCount,
         };
       });
     } catch (error) {
@@ -121,6 +135,10 @@ export default function EventDetailsPage() {
     }
 
     if (!id || !event) return;
+    if (getEventStatus(event) === 'completed') {
+      toast.error('This event has already ended.');
+      return;
+    }
 
     if (isRegistered) {
       toast.success('You are already registered. Your ticket is secured in dashboard.');
@@ -167,6 +185,31 @@ export default function EventDetailsPage() {
   if (loading) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">Loading...</div>;
   if (!event) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-white">Event not found</div>;
 
+  const eventStatus = getEventStatus(event);
+  const attendeesCount = getEventAttendeesCount(event);
+  const eventLocation = getEventLocation(event);
+  const eventStartDate = getEventStartDate(event);
+  const eventEndDate = getEventEndDate(event);
+  const availableSlots = Math.max(event.capacity - attendeesCount, 0);
+  const statusUi =
+    eventStatus === 'ongoing'
+      ? {
+          label: 'Live Now',
+          badge: 'bg-emerald-500/20 text-emerald-200',
+          registerLabel: 'Join Event',
+        }
+      : eventStatus === 'completed'
+        ? {
+            label: 'Event Ended',
+            badge: 'bg-slate-500/30 text-slate-200',
+            registerLabel: 'View Highlights',
+          }
+        : {
+            label: 'Upcoming',
+            badge: 'bg-blue-500/20 text-blue-200',
+            registerLabel: 'Register Now',
+          };
+
   return (
     <div className="min-h-screen bg-[#0F172A] pt-32 pb-20 px-6">
       <div className="max-w-7xl mx-auto">
@@ -187,15 +230,24 @@ export default function EventDetailsPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] to-transparent opacity-60" />
                 <div className="absolute bottom-8 left-8 right-8">
                   <h1 className="text-4xl md:text-5xl font-black text-white mb-4 leading-tight">{event.title}</h1>
+                  <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${statusUi.badge}`}>
+                    {statusUi.label}
+                  </span>
                   <div className="flex flex-wrap gap-6 text-white/80">
                     <div className="flex items-center gap-2">
                       <Calendar size={20} className="text-indigo-400" />
-                      <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                      <span>{formatEventDateTime(eventStartDate)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin size={20} className="text-teal-400" />
-                      <span>{event.venue}</span>
+                      <span>{eventLocation}</span>
                     </div>
+                    {eventEndDate && (
+                      <div className="flex items-center gap-2">
+                        <Clock size={20} className="text-sky-300" />
+                        <span>Ends {formatEventDateTime(eventEndDate)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -275,13 +327,15 @@ export default function EventDetailsPage() {
               >
                 <div className="flex items-center justify-between mb-8">
                   <div className="text-slate-400 text-sm font-bold uppercase tracking-widest">Registration</div>
-                  <div className="px-3 py-1 bg-teal-500/20 text-teal-400 rounded-full text-xs font-bold">OPEN</div>
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold ${statusUi.badge}`}>
+                    {statusUi.label}
+                  </div>
                 </div>
 
                 <div className="space-y-6 mb-8">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-300">Available Slots</span>
-                    <span className="text-white font-bold">{event.capacity - event.registeredCount} / {event.capacity}</span>
+                    <span className="text-white font-bold">{availableSlots} / {event.capacity}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-300">Ticket Price</span>
@@ -290,7 +344,7 @@ export default function EventDetailsPage() {
                   <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-indigo-500 to-teal-500" 
-                      style={{ width: `${(event.registeredCount / event.capacity) * 100}%` }}
+                      style={{ width: `${(attendeesCount / event.capacity) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -307,6 +361,13 @@ export default function EventDetailsPage() {
                       View QR Ticket
                     </button>
                   </div>
+                ) : eventStatus === 'completed' ? (
+                  <button
+                    onClick={() => navigate('/event-highlights')}
+                    className="w-full py-4 bg-slate-600 hover:bg-slate-500 text-white rounded-2xl font-bold transition-all"
+                  >
+                    View Highlights
+                  </button>
                 ) : (
                   <button
                     onClick={event.ticketPrice > 0 ? () => void handleSecurePayment() : handleRegister}
@@ -319,7 +380,7 @@ export default function EventDetailsPage() {
                         : `Pay ${formatInr(event.ticketPrice)} & Register`
                       : registering
                         ? 'Processing...'
-                        : 'Register Now'}
+                        : statusUi.registerLabel}
                   </button>
                 )}
 
@@ -329,10 +390,10 @@ export default function EventDetailsPage() {
                   </button>
                   <button
                     onClick={() => void handleSecurePayment()}
-                    disabled={registering || generatingPayment || event.ticketPrice <= 0}
+                    disabled={registering || generatingPayment || event.ticketPrice <= 0 || eventStatus === 'completed'}
                     className="flex items-center gap-2 text-slate-400 hover:text-white disabled:text-slate-500/70 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                   >
-                    <Shield size={16} /> {event.ticketPrice <= 0 ? 'No Payment Needed' : generatingPayment ? 'Generating...' : 'Secure Payment'}
+                    <Shield size={16} /> {event.ticketPrice <= 0 ? 'No Payment Needed' : generatingPayment ? 'Generating...' : eventStatus === 'completed' ? 'Event Ended' : 'Secure Payment'}
                   </button>
                 </div>
               </motion.div>

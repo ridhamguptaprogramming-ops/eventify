@@ -33,14 +33,24 @@ import {
   upsertUserProfile,
   UserProfile,
 } from '../lib/api';
+import {
+  formatEventDateTime,
+  getEventEndDate,
+  getEventLocation,
+  getEventStartDate,
+  getEventStatus,
+} from '../lib/eventLifecycle';
 import { useAuth } from '../context/AuthContext';
 
-type FilterType = 'all' | 'upcoming' | 'attended';
+type FilterType = 'all' | 'upcoming' | 'ongoing' | 'attended' | 'missed';
 type SortType = 'date' | 'recently_registered';
+type RegistrationLifecycle = 'upcoming' | 'ongoing' | 'attended' | 'missed';
 
 type EnrichedRegistration = Registration & {
-  eventDate?: string;
-  eventVenue?: string;
+  eventStartDateTime?: string;
+  eventEndDateTime?: string;
+  eventLocation?: string;
+  eventStatus?: Event['status'];
   eventDescription?: string;
 };
 
@@ -49,23 +59,22 @@ const cardEnter = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.45 } },
 };
 
-function getStatusForRegistration(reg: EnrichedRegistration) {
+function getStatusForRegistration(reg: EnrichedRegistration): RegistrationLifecycle {
   if (reg.attended) return 'attended';
-  if (!reg.eventDate) return 'upcoming';
-  return new Date(reg.eventDate).getTime() >= Date.now() ? 'upcoming' : 'attended';
+  if (reg.eventStatus === 'completed') return 'missed';
+  if (reg.eventStatus === 'ongoing') return 'ongoing';
+  return 'upcoming';
 }
 
 function formatEventDate(date?: string) {
-  if (!date) return 'Date TBD';
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return 'Date TBD';
-  return parsed.toLocaleString([], {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatEventDateTime(date);
+}
+
+function getRegistrationStatusLabel(status: RegistrationLifecycle) {
+  if (status === 'attended') return 'Attended';
+  if (status === 'missed') return 'Missed';
+  if (status === 'ongoing') return 'Live';
+  return 'Upcoming';
 }
 
 export default function DashboardPage() {
@@ -107,10 +116,14 @@ export default function DashboardPage() {
 
         const enriched = regs.map((reg) => {
           const matchingEvent = eventsById.get(reg.eventId);
+          const eventStartDate = matchingEvent ? getEventStartDate(matchingEvent)?.toISOString() : undefined;
+          const eventEndDate = matchingEvent ? getEventEndDate(matchingEvent)?.toISOString() : undefined;
           return {
             ...reg,
-            eventDate: matchingEvent?.date,
-            eventVenue: matchingEvent?.venue,
+            eventStartDateTime: eventStartDate,
+            eventEndDateTime: eventEndDate,
+            eventLocation: matchingEvent ? getEventLocation(matchingEvent) : undefined,
+            eventStatus: matchingEvent ? getEventStatus(matchingEvent) : undefined,
             eventDescription: matchingEvent?.description,
           };
         });
@@ -131,9 +144,13 @@ export default function DashboardPage() {
     };
 
     void loadDashboardData();
+    const pollId = window.setInterval(() => {
+      void loadDashboardData();
+    }, 60_000);
 
     return () => {
       isMounted = false;
+      window.clearInterval(pollId);
     };
   }, [user]);
 
@@ -163,8 +180,8 @@ export default function DashboardPage() {
         return new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime();
       }
 
-      const aDate = a.eventDate ? new Date(a.eventDate).getTime() : 0;
-      const bDate = b.eventDate ? new Date(b.eventDate).getTime() : 0;
+      const aDate = a.eventStartDateTime ? new Date(a.eventStartDateTime).getTime() : 0;
+      const bDate = b.eventStartDateTime ? new Date(b.eventStartDateTime).getTime() : 0;
 
       if (aDate !== bDate) {
         return aDate - bDate;
@@ -182,6 +199,8 @@ export default function DashboardPage() {
   const totalEvents = registrations.length;
   const attendedCount = registrations.filter((reg) => getStatusForRegistration(reg) === 'attended').length;
   const upcomingCount = registrations.filter((reg) => getStatusForRegistration(reg) === 'upcoming').length;
+  const ongoingCount = registrations.filter((reg) => getStatusForRegistration(reg) === 'ongoing').length;
+  const missedCount = registrations.filter((reg) => getStatusForRegistration(reg) === 'missed').length;
 
   const activity = useMemo(() => {
     const timeline = registrations.flatMap((reg) => {
@@ -215,10 +234,11 @@ export default function DashboardPage() {
   const notifications = useMemo(() => {
     const output: { id: string; message: string; tone: 'info' | 'success' }[] = [];
 
-    if (upcomingCount > 0) {
+    const activeCount = upcomingCount + ongoingCount;
+    if (activeCount > 0) {
       output.push({
         id: 'upcoming',
-        message: `You have ${upcomingCount} upcoming event${upcomingCount > 1 ? 's' : ''}.`,
+        message: `You have ${activeCount} active registration${activeCount > 1 ? 's' : ''}.`,
         tone: 'info',
       });
     }
@@ -234,7 +254,7 @@ export default function DashboardPage() {
     }
 
     return output;
-  }, [profileView?.isVerified, selectedReg, upcomingCount]);
+  }, [ongoingCount, profileView?.isVerified, selectedReg, upcomingCount]);
 
   const downloadQrImage = (registration: EnrichedRegistration) => {
     if (!selectedReg || selectedReg.id !== registration.id) {
@@ -260,13 +280,13 @@ export default function DashboardPage() {
   };
 
   const downloadTicketDetails = (registration: EnrichedRegistration) => {
-    const status = getStatusForRegistration(registration) === 'attended' ? 'Attended' : 'Upcoming';
+    const status = getRegistrationStatusLabel(getStatusForRegistration(registration));
     const lines = [
       'Esoteric Hub Ticket',
       '-------------------',
       `Event: ${registration.eventTitle}`,
-      `Event Date: ${formatEventDate(registration.eventDate)}`,
-      `Location: ${registration.eventVenue ?? 'Venue TBA'}`,
+      `Event Date: ${formatEventDate(registration.eventStartDateTime)}`,
+      `Location: ${registration.eventLocation ?? 'Venue TBA'}`,
       `Status: ${status}`,
       `Registered On: ${new Date(registration.registeredAt).toLocaleString()}`,
       `Ticket QR Value: ${registration.qrCode}`,
@@ -285,13 +305,22 @@ export default function DashboardPage() {
   };
 
   const addToWallet = (registration: EnrichedRegistration) => {
-    const eventDate = registration.eventDate ? new Date(registration.eventDate) : null;
+    if (getStatusForRegistration(registration) === 'missed') {
+      toast.info('Completed events cannot be edited in wallet.');
+      return;
+    }
+
+    const eventDate = registration.eventStartDateTime
+      ? new Date(registration.eventStartDateTime)
+      : null;
     if (!eventDate || Number.isNaN(eventDate.getTime())) {
       toast.error('Event date unavailable for wallet action.');
       return;
     }
 
-    const endDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
+    const endDate = registration.eventEndDateTime
+      ? new Date(registration.eventEndDateTime)
+      : new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
 
     const formatForGoogle = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
@@ -299,7 +328,7 @@ export default function DashboardPage() {
       action: 'TEMPLATE',
       text: registration.eventTitle,
       details: `Registration ID: ${registration.id} | Ticket QR: ${registration.qrCode}`,
-      location: registration.eventVenue ?? 'Venue TBA',
+      location: registration.eventLocation ?? 'Venue TBA',
       dates: `${formatForGoogle(eventDate)}/${formatForGoogle(endDate)}`,
     });
 
@@ -307,7 +336,8 @@ export default function DashboardPage() {
   };
 
   const handleCancelRegistration = async (registration: EnrichedRegistration) => {
-    if (getStatusForRegistration(registration) !== 'upcoming') return;
+    const lifecycle = getStatusForRegistration(registration);
+    if (lifecycle === 'missed' || lifecycle === 'attended') return;
 
     const shouldContinue = window.confirm(`Cancel registration for \"${registration.eventTitle}\"?`);
     if (!shouldContinue) return;
@@ -541,7 +571,9 @@ export default function DashboardPage() {
                 {[
                   { key: 'all', label: 'All' },
                   { key: 'upcoming', label: 'Upcoming' },
+                  { key: 'ongoing', label: 'Live' },
                   { key: 'attended', label: 'Attended' },
+                  { key: 'missed', label: 'Missed' },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -571,11 +603,12 @@ export default function DashboardPage() {
               </label>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {[
                 { label: 'Total Events', value: totalEvents, icon: Calendar, color: 'text-blue-200' },
+                { label: 'Live', value: ongoingCount, icon: Clock3, color: 'text-emerald-200' },
                 { label: 'Attended', value: attendedCount, icon: CheckCircle2, color: 'text-emerald-200' },
-                { label: 'Upcoming', value: upcomingCount, icon: Clock3, color: 'text-purple-200' },
+                { label: 'Missed', value: missedCount, icon: XCircle, color: 'text-rose-200' },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
@@ -626,6 +659,14 @@ export default function DashboardPage() {
                 ) : (
                   enrichedByFilter.map((registration, index) => {
                     const status = getStatusForRegistration(registration);
+                    const statusBadgeClass =
+                      status === 'attended'
+                        ? 'bg-emerald-500/20 text-emerald-200'
+                        : status === 'missed'
+                          ? 'bg-slate-500/25 text-slate-200'
+                          : status === 'ongoing'
+                            ? 'bg-green-500/20 text-green-200'
+                            : 'bg-blue-500/20 text-blue-200';
                     return (
                       <motion.article
                         key={registration.id}
@@ -648,23 +689,19 @@ export default function DashboardPage() {
                             <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-300">
                               <span className="inline-flex items-center gap-1.5">
                                 <Calendar size={14} className="text-blue-200" />
-                                {formatEventDate(registration.eventDate)}
+                                {formatEventDate(registration.eventStartDateTime)}
                               </span>
                               <span className="inline-flex items-center gap-1.5">
                                 <MapPin size={14} className="text-purple-200" />
-                                {registration.eventVenue ?? 'Venue TBA'}
+                                {registration.eventLocation ?? 'Venue TBA'}
                               </span>
                             </div>
                           </button>
 
                           <span
-                            className={`h-fit rounded-xl px-3 py-1 text-xs font-bold uppercase tracking-[0.15em] ${
-                              status === 'attended'
-                                ? 'bg-emerald-500/20 text-emerald-200'
-                                : 'bg-blue-500/20 text-blue-200'
-                            }`}
+                            className={`h-fit rounded-xl px-3 py-1 text-xs font-bold uppercase tracking-[0.15em] ${statusBadgeClass}`}
                           >
-                            {status === 'attended' ? 'Attended' : 'Upcoming'}
+                            {getRegistrationStatusLabel(status)}
                           </span>
                         </div>
 
@@ -682,7 +719,7 @@ export default function DashboardPage() {
                           >
                             <Download size={14} /> Download Ticket
                           </button>
-                          {status === 'upcoming' ? (
+                          {status === 'upcoming' || status === 'ongoing' ? (
                             <button
                               type="button"
                               disabled={cancelingId === registration.id}
@@ -691,13 +728,21 @@ export default function DashboardPage() {
                             >
                               <XCircle size={14} /> {cancelingId === registration.id ? 'Cancelling...' : 'Cancel Registration'}
                             </button>
+                          ) : status === 'missed' ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-500"
+                            >
+                              <XCircle size={14} /> Missed - Actions Locked
+                            </button>
                           ) : (
                             <button
                               type="button"
                               disabled
                               className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-500"
                             >
-                              <CheckCircle2 size={14} /> Attendance Completed
+                              <CheckCircle2 size={14} /> Attended
                             </button>
                           )}
                         </div>
@@ -739,9 +784,10 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           onClick={() => addToWallet(selectedReg)}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/15 px-3 py-2 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:bg-white/20"
+                          disabled={getStatusForRegistration(selectedReg) === 'missed'}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/15 px-3 py-2 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <Wallet size={14} /> Add to Wallet
+                          <Wallet size={14} /> {getStatusForRegistration(selectedReg) === 'missed' ? 'Locked' : 'Add to Wallet'}
                         </button>
                       </div>
                     </>
