@@ -68,7 +68,7 @@ const team: TeamMember[] = [
   {
     name: 'Ridham Gupta',
     role: 'Co-Founder & CEO',
-    image: 'image/2.png',
+    image: '2.png',
     impact: 'Shapes product direction so teams can run events with less complexity and more impact.',
     linkedin: 'https://www.linkedin.com/in/ridham-gupta-09056a386/',
     Instagram: 'https://www.instagram.com/i.ridhamgupta/?hl=en',
@@ -76,7 +76,7 @@ const team: TeamMember[] = [
   {
     name: 'Pranav Sharma',
     role: 'Co-Founder & CTO',
-    image: 'image/1.png',
+    image: '1.png',
     impact: 'Leads platform architecture to ensure speed, resilience, and scalability at every event touchpoint.',
     linkedin: 'https://www.linkedin.com/in/hackwithpranav?utm_source=share_via&utm_content=profile&utm_medium=member_android',
     Instagram: 'https://www.instagram.com/01pranav_sharma?igsh=MXczejU4bmUyb3Nqcg%3D%3D',
@@ -84,14 +84,14 @@ const team: TeamMember[] = [
   {
     name: 'Arman Khan',
     role: 'Engineering Lead',
-    image: 'image/3.png',
+    image: '3.png',
     impact: 'Builds core product systems that keep live event operations fast, stable, and intelligent.',
     linkedin: 'https://www.linkedin.com/in/arman-khan-778874350/',
   },
   {
     name: 'Mohammad Ayan Khan',
     role: 'Lead Designer',
-    image: 'image/4.png',
+    image: '4.png',
     impact: 'Crafts intuitive experiences that make complex event workflows feel simple and effortless.',
     linkedin: 'https://www.linkedin.com/in/mohammad-ayan-khan-40a164333/',
      Instagram: 'https://www.instagram.com/ayan_verse_diaries?igsh=MTlsMThsdWMxa3ZuZw%3D%3D'
@@ -99,7 +99,7 @@ const team: TeamMember[] = [
   {
     name: 'Khushal Agarwal',
     role: 'Head of Marketing',
-    image: 'image/5.png',
+    image: '5.png',
     impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
     linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
      Instagram: 'https://www.instagram.com/k_garg_4/'
@@ -107,21 +107,21 @@ const team: TeamMember[] = [
    {
     name: 'Khushal Agarwal',
     role: 'Head of Marketing',
-    image: 'image/6.png',
+    image: '6.png',
     impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
     linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
   },
    {
     name: 'Khushal Agarwal',
     role: 'Head of Marketing',
-    image: 'image/7.png',
+    image: '7.png',
     impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
     linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
   },
     {
     name: 'Khushal Agarwal',
     role: 'Head of Marketing',
-    image: 'image/7.png',
+    image: '7.png',
     impact: 'Drives storytelling and market growth so more organizers discover smarter event operations.',
     linkedin: 'https://www.linkedin.com/in/khushal-agarwal-172406353/',
   },
