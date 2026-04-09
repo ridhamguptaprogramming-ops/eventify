@@ -87,8 +87,40 @@ interface FetchOptions extends RequestInit {
   headers?: HeadersInit;
 }
 
+function getApiBaseUrl() {
+  const configuredBase =
+    import.meta.env.VITE_API_BASE_URL ??
+    import.meta.env.VITE_APP_URL ??
+    process.env.APP_URL ??
+    "";
+
+  return configuredBase.trim().replace(/\/+$/, "");
+}
+
+function resolveApiUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const baseUrl = getApiBaseUrl();
+  if (!baseUrl) {
+    return path;
+  }
+
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const baseEndsWithApi = /\/api$/i.test(baseUrl);
+  const pathStartsWithApi = /^\/api(\/|$)/i.test(normalizedPath);
+
+  if (baseEndsWithApi && pathStartsWithApi) {
+    const pathWithoutApiPrefix = normalizedPath.replace(/^\/api/i, "");
+    return `${baseUrl}${pathWithoutApiPrefix || "/"}`;
+  }
+
+  return `${baseUrl}${normalizedPath}`;
+}
+
 async function apiRequest<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(resolveApiUrl(path), {
     ...options,
     headers: {
       "Content-Type": "application/json",
