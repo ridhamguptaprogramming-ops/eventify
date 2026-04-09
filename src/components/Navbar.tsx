@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { auth, googleProvider, signInWithPopup, signInWithRedirect, signOut } from '../lib/firebase';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getNetlifyProductionHostname, isNetlifyDeployPreviewHostname } from '../lib/netlifyDomains';
 
 function getLoginErrorMessage(code?: string) {
   switch (code) {
@@ -42,6 +43,17 @@ export default function Navbar() {
   }, []);
 
   const handleLogin = async () => {
+    const currentHostname = window.location.hostname;
+    if (isNetlifyDeployPreviewHostname(currentHostname)) {
+      const productionHostname = getNetlifyProductionHostname(currentHostname);
+      const productionUrl = productionHostname ? `https://${productionHostname}` : '';
+      const message = productionUrl
+        ? `Login is disabled on Netlify deploy previews. Open ${productionUrl} or add ${currentHostname} to Firebase Authentication authorized domains.`
+        : `Login is disabled on this deploy preview. Add ${currentHostname} to Firebase Authentication authorized domains.`;
+      toast.error(message, { duration: 9000 });
+      return;
+    }
+
     if (loginInProgressRef.current) {
       toast.info('Login is already in progress.');
       return;

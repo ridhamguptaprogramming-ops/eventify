@@ -1,3 +1,5 @@
+import { buildFallbackEvents } from './fallbackEvents';
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -113,7 +115,10 @@ async function apiRequest<T>(path: string, options: FetchOptions = {}): Promise<
 }
 
 export function getEvents() {
-  return apiRequest<Event[]>("/api/events");
+  return apiRequest<Event[]>("/api/events").catch((error) => {
+    console.warn("Falling back to seeded events because /api/events is unavailable.", error);
+    return buildFallbackEvents();
+  });
 }
 
 export function getEventById(id: string) {
